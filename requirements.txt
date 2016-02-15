@@ -25,7 +25,7 @@ nbconvert==4.1.0
 nbformat==4.0.1
 networkx==1.11
 notebook==4.1.0
-numpy==1.10.4
+numpy>=1.9
 path.py==8.1.2
 pexpect==4.0.1
 pickleshare==0.6
