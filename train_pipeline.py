@@ -79,7 +79,10 @@ def train_and_predict_funcs(model, update="nesterov", regularization=0.0):
     # Compile a second function computing the validation loss and accuracy:
     val_fn = theano.function([input_var, target_var], [test_loss, test_acc])
 
-    return train_fn, val_fn
+    # theano function giving output label for given input
+    predict_fn = theano.function([input_var, target_var], test_prediction)
+
+    return train_fn, val_fn, predict_fn
 
 
 def train(num_epochs=10):
@@ -87,7 +90,7 @@ def train(num_epochs=10):
     X_train, y_train, X_val, y_val, X_test, y_test = load_dataset()
 
     model = None
-    train_fn, val_fn = train_and_predict_funcs(model)
+    train_fn, val_fn, predict_fn = train_and_predict_funcs(model)
 
     print("Starting training...")
     # We iterate over epochs:
@@ -136,15 +139,27 @@ def train(num_epochs=10):
         test_acc / test_batches * 100))
 
 
-def compute_accuracy(model):
-    _, val_fn = train_and_predict_funcs(model)
+def compute_accuracy(model, test=False):
+    """
+
+    :param model: Model to compute accuracy with respect to
+    :param test:  Whether or not to compute accuracy on test dataset (only use when
+                    performing final run)
+    :return: Computed accuracy values
+    """
+    _, val_fn, predict_fn = train_and_predict_funcs(model)
     X_train, y_train, X_val, y_val, X_test, y_test = load_dataset()
 
     _, train_acc = val_fn(X_train, y_train)
     _, dev_acc = val_fn(X_val, y_val)
-    _, test_acc = val_fn(X_test, y_test)
 
-    print "Train accuracy: {0}, Dev accuracy: {1}, Test accuracy: {2}".\
-        format(train_acc, dev_acc, test_acc)
+    test_acc = None
+    if test:
+        _, test_acc = val_fn(X_test, y_test)
+        print "Train accuracy: {0}, Dev accuracy: {1}, Test accuracy: {2}".\
+            format(train_acc, dev_acc, test_acc)
+    else:
+        print "Train accuracy: {0}, Dev accuracy: {1}".\
+            format(train_acc, dev_acc)
 
     return train_acc, dev_acc, test_acc
