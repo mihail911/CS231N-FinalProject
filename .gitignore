@@ -1,0 +1,8 @@
+.env/*
+*.log
+*.pyc
+*~
+\#*
+
+# ipython notebook ignores
+.ipynb_checkpoints/*
