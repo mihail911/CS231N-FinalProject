@@ -2,4 +2,4 @@
 # Usage: ./start_notebook.sh [virtualenv location] [port]
 
 source .env/bin/activate
-jupyter notebook --no-browser --port ${2-16385} 
+jupyter notebook --no-browser --port ${1-16385} 
