@@ -1,3 +1,11 @@
+.env/*
+*.log
 *.pyc
-*.png
+*~
+\#*
 
+# ipython notebook ignores
+.ipynb_checkpoints/*
+
+# images
+*.png
