@@ -13,7 +13,6 @@ import urllib
 
 import lasagne
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
-#from lasagne.layers.dnn import Conv2DDNNLayer as ConvLayer
 from lasagne.layers.conv import Conv2DLayer as ConvLayer
 from lasagne.layers import MaxPool2DLayer as PoolLayer
 from lasagne.layers import LocalResponseNormalization2DLayer as NormLayer
@@ -22,6 +21,14 @@ from models.vgg19 import build_model
 
 
 def prep_image(url, mean_image):
+    
+    ''' Crops and centers an ImageNet image to 3 x 224 x 224. 
+    
+        Return: 
+        :rawim: the cropped image without mean-centering
+        :im: a mean-centered image 
+    '''
+    
     ext = url.split('.')[-1]
     im = plt.imread(io.BytesIO(urllib.urlopen(url).read()), ext)
     # Resize so smallest dim = 256, preserving aspect ratio

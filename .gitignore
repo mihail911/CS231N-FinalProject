@@ -9,3 +9,6 @@
 
 # images
 *.png
+
+# datasets
+*.gz

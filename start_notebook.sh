@@ -2,4 +2,4 @@
 # Usage: ./start_notebook.sh [virtualenv location] [port]
 
 source .env/bin/activate
-jupyter notebook --no-browser --port ${1-16385} 
+OMP_NUM_THREADS=4 jupyter notebook --no-browser --port ${1-16385} 
