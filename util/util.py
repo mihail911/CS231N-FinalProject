@@ -68,6 +68,12 @@ def scale_image(im):
     h, w, _ = im.shape
     im = im[h//2-112:h//2+112, w//2-112:w//2+112]
 
+    # Shuffle axes to c01
+    im = np.swapaxes(np.swapaxes(im, 1, 2), 0, 1)
+
+    # Convert to BGR
+    im = im[::-1, :, :]
+
     return im
 
 
@@ -110,11 +116,7 @@ def prep_image_data(filename, mean_image):
 
     rawim = np.copy(im).astype('uint8')
 
-    # Shuffle axes to c01
-    im = np.swapaxes(np.swapaxes(im, 1, 2), 0, 1)
 
-    # Convert to BGR
-    im = im[::-1, :, :]
 
     im = im - mean_image[:, None, None]
     return rawim, floatX(im[np.newaxis])

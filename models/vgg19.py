@@ -6,6 +6,8 @@ import cPickle as pickle
 import urllib
 import io
 import skimage.transform
+import sys
+sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
 
 import lasagne
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
@@ -16,6 +18,7 @@ from lasagne.layers import DropoutLayer
 from lasagne.layers import LocalResponseNormalization2DLayer as NormLayer
 from lasagne.utils import floatX
 from lasagne.nonlinearities import softmax
+from train_pipeline import load_dataset_batch, compute_accuracy_batch
 
 def prep_image(url, mean_image):
     ext = url.split('.')[-1]
@@ -51,7 +54,6 @@ def build_model():
     """ 
     Builds the classic VGG-19 model using Lasagne wrapper to Theano.
     """
-    
     net = {}
     net['input'] = InputLayer((None, 3, 224, 224))
     net['conv1_1'] = ConvLayer(
@@ -122,7 +124,7 @@ def download_val_images (num_ex, mean_image):
     np.random.seed(19)
     np.random.shuffle(image_urls)
 
-    images = np.zeros ((num_ex, 3, 224, 224), dtype=np.float32)
+    images = np.zeros((num_ex, 3, 224, 224), dtype=np.float32)
     i = 0
     used=True
     for im_url in image_urls:
@@ -169,3 +171,29 @@ def run_forward(images):
     print images.shape
     prob = np.array(lasagne.layers.get_output(net['prob'], images, deterministic=True).eval())
 
+
+def compute_accuracy(model, data_dir, val_filename):
+    batch_size = 10
+    # TODO: Change hard-coding of number of examples in data
+    num_ex = 50000
+    batch_frac = batch_size / num_ex
+    total_acc = 0.
+    total_ex = 0
+    for data_batch, labels_batch in load_dataset_batch(data_dir,
+                                            val_filename, batch_size):
+
+        print "Computed accuracy on {0}".format(str(total_ex))
+        acc = compute_accuracy_batch(model, data_batch, labels_batch)
+        total_acc += batch_frac*acc
+
+        total_ex += batch_size
+
+    print "Accuracy for run: {0}".format(str(total_acc))
+
+    return acc
+
+
+model = build_model()["prob"]
+data_dir = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2012_img_val"
+val_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2014_clsloc_validation_ground_truth.txt"
+compute_accuracy(model, data_dir, val_filename)

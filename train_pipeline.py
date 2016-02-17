@@ -3,16 +3,40 @@ import os
 import time
 
 import lasagne
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import theano
 import theano.tensor as T
 
+from os import listdir
+from os.path import isfile, join
+from util.util import scale_image, get_validation_labels
 
-def load_dataset():
+
+def load_dataset_batch(data_dir, val_filename, batch_size):
     """
-    May want to put this in separate utility module.
+    Given path to dir, containing image data, load an array of batch_size examples
     """
-    pass
+    files = [f for f in listdir(data_dir) if isfile(join(data_dir, f))]
+    # Get one-hot representations of validation dataset labels
+    one_hot_rep, labels = get_validation_labels(val_filename)
+
+    for start_idx in range(0, len(files) - batch_size + 1, batch_size):
+        end_idx = start_idx + batch_size
+        files_batch = files[start_idx:end_idx]
+        labels_batch = labels[start_idx:end_idx]
+
+        # TODO: Change hardcoding of dimensions
+        data_batch = np.zeros((batch_size, 3, 224, 224))
+        for idx, f in enumerate(files_batch):
+            img = matplotlib.image.imread(data_dir+"/"+f)
+            # Convert to appropriate dimensions 3x224x224
+            img = scale_image(img)
+
+            data_batch[idx, :, :, :] = img
+
+        yield data_batch, labels_batch
 
 
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
@@ -139,27 +163,47 @@ def train(num_epochs=10):
         test_acc / test_batches * 100))
 
 
-def compute_accuracy(model, test=False):
+def load_dataset():
+    # NOTE: Need to implement this function in order for compute_accuracy
+    # to work
+    pass
+
+
+def compute_accuracy_batch(model, data_batch, labels_batch):
     """
-
-    :param model: Model to compute accuracy with respect to
-    :param test:  Whether or not to compute accuracy on test dataset (only use when
-                    performing final run)
-    :return: Computed accuracy values
+    Compute accuracy of a data batch
+    :param model:
+    :param data_batch:
+    :param labels_batch:
+    :return:
     """
-    _, val_fn, predict_fn = train_and_predict_funcs(model)
-    X_train, y_train, X_val, y_val, X_test, y_test = load_dataset()
+    _, val_fn, _ = train_and_predict_funcs(model)
+    _, acc = val_fn(data_batch, labels_batch)
 
-    _, train_acc = val_fn(X_train, y_train)
-    _, dev_acc = val_fn(X_val, y_val)
+    return acc
 
-    test_acc = None
-    if test:
-        _, test_acc = val_fn(X_test, y_test)
-        print "Train accuracy: {0}, Dev accuracy: {1}, Test accuracy: {2}".\
-            format(train_acc, dev_acc, test_acc)
-    else:
-        print "Train accuracy: {0}, Dev accuracy: {1}".\
-            format(train_acc, dev_acc)
-
-    return train_acc, dev_acc, test_acc
+# TODO: Refactor this to make use of compute_accuracy_batch
+# def compute_accuracy(model, test=False):
+#     """
+#
+#     :param model: Model to compute accuracy with respect to
+#     :param test:  Whether or not to compute accuracy on test dataset (only use when
+#                     performing final run)
+#     :return: Computed accuracy values
+#     """
+#     _, val_fn, predict_fn = train_and_predict_funcs(model)
+#     X_train, y_train, X_val, y_val, X_test, y_test = load_dataset()
+#
+#     _, train_acc = val_fn(X_train, y_train)
+#     _, dev_acc = val_fn(X_val, y_val)
+#
+#     test_acc = None
+#     if test:
+#         _, test_acc = val_fn(X_test, y_test)
+#         print "Train accuracy: {0}, Dev accuracy: {1}, Test accuracy: {2}".\
+#             format(train_acc, dev_acc, test_acc)
+#     else:
+#         print "Train accuracy: {0}, Dev accuracy: {1}".\
+#             format(train_acc, dev_acc)
+#
+#     return train_acc, dev_acc, test_acc
