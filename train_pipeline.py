@@ -31,6 +31,10 @@ def load_dataset_batch(data_dir, val_filename, batch_size):
         data_batch = np.zeros((batch_size, 3, 224, 224))
         for idx, f in enumerate(files_batch):
             img = matplotlib.image.imread(data_dir+"/"+f)
+            if len(img.shape) == 2:
+                h, w = img.shape
+                img = img.reshape(h, w, 1)
+
             # Convert to appropriate dimensions 3x224x224
             img = scale_image(img)
 
