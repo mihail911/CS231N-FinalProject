@@ -37,7 +37,7 @@ class FastGradient(object):
 
 	def build_network(self,net,input_var):
 		if net is 'vgg19':
-			network = InputLayer(shape=(self.num_images, 3, 224, 224), input_var=input_var)
+			network = InputLayer(shape=(None,3, 224, 224), input_var=input_var)
 			network = ConvLayer(network, 64, 3, pad=1)
 			network = ConvLayer(network, 64, 3, pad=1)
 			network = PoolLayer(network, 2)
@@ -87,31 +87,33 @@ class FastGradient(object):
 
 
 
-	def gradient(self,net='vgg19'):
+	def adExample(self,X,y,weights,net='vgg19'):
 		input_var = T.tensor4('inputs')
 		target_var = T.ivector('targets')
 		network = self.build_network(net,input_var)
 
 		prediction = lasagne.layers.get_output(network)
+
 		if self.loss is 'softmax':
 			loss = lasagne.objectives.categorical_crossentropy(prediction, target_var)
 		if self.loss is 'svm':
 			loss = lasagne.objectives.multiclass_hinge_loss(prediction, target_var)
 
 		loss = loss.mean()
-
 		params = lasagne.layers.get_all_params(network, trainable=True)
-		grad = T.grad(loss, input_var)
 
-		return network,grad
-
-
-	def adver_examples(self, network,grad, X, y, weights):
 		lasagne.layers.set_all_param_values(network, weights)
-		f = theano.function([X], grad)
-		result = f(X,y)
-		final_examples = X + self.eps*np.sign(result)
-		return final_examples
+		Xnew = np.zeros((1,3,224,224))
+		Xnew[:,:,:,:] = X
+
+		grad = T.grad(loss, input_var)
+		final_examples = X + self.eps*T.sgn(grad)
+		func1 = theano.function([input_var,target_var], final_examples, allow_input_downcast=True)
+		result = func1(Xnew,y)
+		return result
+
+
+		
 
 
 
