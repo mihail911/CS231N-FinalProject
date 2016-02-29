@@ -12,105 +12,61 @@ import theano.tensor as T
 from os import listdir
 from os.path import isfile, join
 from util.util import scale_image, get_validation_labels
+from models.vgg19 import build_model
 
 
-def load_dataset_batch(data_dir, val_filename, batch_size):
-    """
-    Given path to dir, containing image data, load an array of batch_size examples
-    """
-    files = [f for f in listdir(data_dir) if isfile(join(data_dir, f))]
-    # Get one-hot representations of validation dataset labels
-    one_hot_rep, labels = get_validation_labels(val_filename)
-
-    for start_idx in range(0, len(files) - batch_size + 1, batch_size):
-        end_idx = start_idx + batch_size
-        files_batch = files[start_idx:end_idx]
-        labels_batch = labels[start_idx:end_idx]
-
-        # TODO: Change hardcoding of dimensions
-        data_batch = np.zeros((batch_size, 3, 224, 224))
-        for idx, f in enumerate(files_batch):
-            img = matplotlib.image.imread(data_dir+"/"+f)
-            if len(img.shape) == 2:
-                h, w = img.shape
-                img = img.reshape(h, w, 1)
-
-            # Convert to appropriate dimensions 3x224x224
-            img = scale_image(img)
-
-            data_batch[idx, :, :, :] = img
-
-        yield data_batch, labels_batch
 
 
-def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
-    """
-    Get minibatch for data.
-    :param inputs:
-    :param targets:
-    :param batchsize:
-    :param shuffle:
-    :return:
-    """
-    assert len(inputs) == len(targets)
-    if shuffle:
-        indices = np.arange(len(inputs))
-        np.random.shuffle(indices)
-    for start_idx in range(0, len(inputs) - batchsize + 1, batchsize):
-        if shuffle:
-            excerpt = indices[start_idx:start_idx + batchsize]
-        else:
-            excerpt = slice(start_idx, start_idx + batchsize)
-        yield inputs[excerpt], targets[excerpt]
 
-
-def train_and_predict_funcs(model, update="nesterov", regularization=0.0):
-    """
-    Create theano functions for computing loss, accuracy, etc. for given model
-    :param model:
-    :param update: Update parameter to use for training. Select from among
-                    "nesterov", "sgd", "rmsprop", etc.
-    :return:
-    """
-    input_var = T.tensor4('inputs')
-    target_var = T.ivector('targets')
-
-    # Create a loss expression for training, i.e., a scalar objective we want
-    # to minimize (for our multi-class problem, it is the cross-entropy loss):
-    prediction = lasagne.layers.get_output(model)
-    loss = lasagne.objectives.categorical_crossentropy(prediction, target_var)
-    loss = loss.mean()
-    # TODO: Add regularization to the loss
-
-    params = lasagne.layers.get_all_params(model, trainable=True)
-    if update == "nesterov":
-        updates = lasagne.updates.nesterov_momentum(
-            loss, params, learning_rate=0.01, momentum=0.9)
-    else:
-        pass
-
-    # Create a loss expression for validation/testing. The crucial difference
-    # here is that we do a deterministic forward pass through the network,
-    # disabling dropout layers.
-    test_prediction = lasagne.layers.get_output(model, deterministic=True)
-    test_loss = lasagne.objectives.categorical_crossentropy(test_prediction,
-                                                            target_var)
-    test_loss = test_loss.mean()
-
-    test_acc = T.mean(T.eq(T.argmax(test_prediction, axis=1), target_var),
-                      dtype=theano.config.floatX)
-
-    # Compile a function performing a training step on a mini-batch (by giving
-    # the updates dictionary) and returning the corresponding training loss:
-    train_fn = theano.function([input_var, target_var], loss, updates=updates)
-
-    # Compile a second function computing the validation loss and accuracy:
-    val_fn = theano.function([input_var, target_var], [test_loss, test_acc])
-
-    # theano function giving output label for given input
-    predict_fn = theano.function([input_var, target_var], test_prediction)
-
-    return train_fn, val_fn, predict_fn
+# def train_and_predict_funcs(update="nesterov", regularization=0.0):
+#     """
+#     Create theano functions for computing loss, accuracy, etc. for given model
+#     :param model:
+#     :param update: Update parameter to use for training. Select from among
+#                     "nesterov", "sgd", "rmsprop", etc.
+#     :return:
+#     """
+#     input_var = T.tensor4('inputs')
+#     target_var = T.ivector('targets')
+#
+#     model = build_model(input_var)["prob"]
+#
+#     # Create a loss expression for training, i.e., a scalar objective we want
+#     # to minimize (for our multi-class problem, it is the cross-entropy loss):
+#     prediction = lasagne.layers.get_output(model)
+#     loss = lasagne.objectives.categorical_crossentropy(prediction, target_var)
+#     loss = loss.mean()
+#     # TODO: Add regularization to the loss
+#
+#     params = lasagne.layers.get_all_params(model, trainable=True)
+#     if update == "nesterov":
+#         updates = lasagne.updates.nesterov_momentum(
+#             loss, params, learning_rate=0.01, momentum=0.9)
+#     else:
+#         pass
+#
+#     # Create a loss expression for validation/testing. The crucial difference
+#     # here is that we do a deterministic forward pass through the network,
+#     # disabling dropout layers.
+#     test_prediction = lasagne.layers.get_output(model, deterministic=True)
+#     test_loss = lasagne.objectives.categorical_crossentropy(test_prediction,
+#                                                             target_var)
+#     test_loss = test_loss.mean()
+#
+#     test_acc = T.mean(T.eq(T.argmax(test_prediction, axis=1), target_var),
+#                       dtype=theano.config.floatX)
+#
+#     # Compile a function performing a training step on a mini-batch (by giving
+#     # the updates dictionary) and returning the corresponding training loss:
+#     train_fn = theano.function([input_var, target_var], loss, updates=updates)
+#
+#     # Compile a second function computing the validation loss and accuracy:
+#     val_fn = theano.function([input_var, target_var], [test_loss, test_acc])
+#
+#     # theano function giving output label for given input
+#     predict_fn = theano.function([input_var, target_var], test_prediction)
+#
+#     return train_fn, val_fn, predict_fn
 
 
 def train(num_epochs=10):
@@ -172,19 +128,6 @@ def load_dataset():
     # to work
     pass
 
-
-def compute_accuracy_batch(model, data_batch, labels_batch):
-    """
-    Compute accuracy of a data batch
-    :param model:
-    :param data_batch:
-    :param labels_batch:
-    :return:
-    """
-    _, val_fn, _ = train_and_predict_funcs(model)
-    _, acc = val_fn(data_batch, labels_batch)
-
-    return acc
 
 # TODO: Refactor this to make use of compute_accuracy_batch
 # def compute_accuracy(model, test=False):

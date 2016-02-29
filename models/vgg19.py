@@ -7,7 +7,12 @@ import urllib
 import io
 import skimage.transform
 import sys
+import theano
+import theano.tensor as T
+
+from os import path
 sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
+sys.path.append("..")
 
 import lasagne
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
@@ -18,7 +23,7 @@ from lasagne.layers import DropoutLayer
 from lasagne.layers import LocalResponseNormalization2DLayer as NormLayer
 from lasagne.utils import floatX
 from lasagne.nonlinearities import softmax
-from train_pipeline import load_dataset_batch, compute_accuracy_batch
+from util.util import load_dataset_batch, compute_accuracy_batch
 
 def prep_image(url, mean_image):
     ext = url.split('.')[-1]
@@ -47,15 +52,66 @@ def prep_image(url, mean_image):
         # Abort
         print "skipping url " + url
         return None, np.zeros((1,))
-    
+
+
+def train_and_predict_funcs(update="nesterov", regularization=0.0):
+    """
+    Create theano functions for computing loss, accuracy, etc. for given model
+    :param model:
+    :param update: Update parameter to use for training. Select from among
+                    "nesterov", "sgd", "rmsprop", etc.
+    :return:
+    """
+    input_var = T.tensor4('inputs')
+    target_var = T.ivector('targets')
+
+    model = build_model(input_var)["prob"]
+
+    # Create a loss expression for training, i.e., a scalar objective we want
+    # to minimize (for our multi-class problem, it is the cross-entropy loss):
+    prediction = lasagne.layers.get_output(model)
+    loss = lasagne.objectives.categorical_crossentropy(prediction, target_var)
+    loss = loss.mean()
+    # TODO: Add regularization to the loss
+
+    params = lasagne.layers.get_all_params(model, trainable=True)
+    if update == "nesterov":
+        updates = lasagne.updates.nesterov_momentum(
+            loss, params, learning_rate=0.01, momentum=0.9)
+    else:
+        pass
+
+    # Create a loss expression for validation/testing. The crucial difference
+    # here is that we do a deterministic forward pass through the network,
+    # disabling dropout layers.
+    test_prediction = lasagne.layers.get_output(model, deterministic=True)
+    test_loss = lasagne.objectives.categorical_crossentropy(test_prediction,
+                                                            target_var)
+    test_loss = test_loss.mean()
+
+    test_acc = T.mean(T.eq(T.argmax(test_prediction, axis=1), target_var),
+                      dtype=theano.config.floatX)
+
+    # Compile a function performing a training step on a mini-batch (by giving
+    # the updates dictionary) and returning the corresponding training loss:
+    train_fn = theano.function([input_var, target_var], loss, updates=updates)
+
+    # Compile a second function computing the validation loss and accuracy:
+    val_fn = theano.function([input_var, target_var], [test_loss, test_acc])
+
+    # theano function giving output label for given input
+    predict_fn = theano.function([input_var, target_var], test_prediction)
+
+    return train_fn, val_fn, predict_fn
+
 
 # Model to be trained/tested against
-def build_model():
+def build_model(input_var):
     """ 
     Builds the classic VGG-19 model using Lasagne wrapper to Theano.
     """
     net = {}
-    net['input'] = InputLayer((None, 3, 224, 224))
+    net['input'] = InputLayer((None, 3, 224, 224), input_var=input_var)
     net['conv1_1'] = ConvLayer(
         net['input'], 64, 3, pad=1)
     net['conv1_2'] = ConvLayer(
@@ -172,7 +228,9 @@ def run_forward(images):
     prob = np.array(lasagne.layers.get_output(net['prob'], images, deterministic=True).eval())
 
 
-def compute_accuracy(model, data_dir, val_filename):
+def compute_accuracy(data_dir, val_filename):
+    _, val_fn, _ = train_and_predict_funcs()
+
     batch_size = 10
     # TODO: Change hard-coding of number of examples in data
     num_ex = 50000
@@ -183,7 +241,7 @@ def compute_accuracy(model, data_dir, val_filename):
                                             val_filename, batch_size):
 
         print "Computed accuracy on {0}".format(str(total_ex))
-        acc = compute_accuracy_batch(model, data_batch, labels_batch)
+        acc = compute_accuracy_batch(val_fn, data_batch, labels_batch)
         total_acc += batch_frac*acc
 
         total_ex += batch_size
@@ -193,7 +251,7 @@ def compute_accuracy(model, data_dir, val_filename):
     return acc
 
 
-model = build_model()["prob"]
-data_dir = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2012_img_val"
-val_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2014_clsloc_validation_ground_truth.txt"
-compute_accuracy(model, data_dir, val_filename)
+if __name__ == "__main__":
+    data_dir = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2012_img_val"
+    val_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2014_clsloc_validation_ground_truth.txt"
+    compute_accuracy(data_dir, val_filename)

@@ -15,6 +15,27 @@ from os.path import isfile, join
 from lasagne.utils import floatX
 
 
+def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
+    """
+    Get minibatch for data.
+    :param inputs:
+    :param targets:
+    :param batchsize:
+    :param shuffle:
+    :return:
+    """
+    assert len(inputs) == len(targets)
+    if shuffle:
+        indices = np.arange(len(inputs))
+        np.random.shuffle(indices)
+    for start_idx in range(0, len(inputs) - batchsize + 1, batchsize):
+        if shuffle:
+            excerpt = indices[start_idx:start_idx + batchsize]
+        else:
+            excerpt = slice(start_idx, start_idx + batchsize)
+        yield inputs[excerpt], targets[excerpt]
+
+
 def get_validation_labels(filename):
     """
     Extracts the label ids from given filename and returns as list.
@@ -120,6 +141,49 @@ def prep_image_data(filename, mean_image):
 
     im = im - mean_image[:, None, None]
     return rawim, floatX(im[np.newaxis])
+
+
+def compute_accuracy_batch(val_fn, data_batch, labels_batch):
+    """
+    Compute accuracy of a data batch
+    :param model:
+    :param data_batch:
+    :param labels_batch:
+    :return:
+    """
+    _, acc = val_fn(data_batch, labels_batch)
+    return acc
+
+
+def load_dataset_batch(data_dir, val_filename, batch_size):
+    """
+    Given path to dir, containing image data, load an array of batch_size examples
+    """
+    files = [f for f in listdir(data_dir) if isfile(join(data_dir, f))]
+    # Get one-hot representations of validation dataset labels
+    one_hot_rep, labels = get_validation_labels(val_filename)
+
+    # TODO: Make sure to normalize data
+
+    for start_idx in range(0, len(files) - batch_size + 1, batch_size):
+        end_idx = start_idx + batch_size
+        files_batch = files[start_idx:end_idx]
+        labels_batch = labels[start_idx:end_idx]
+
+        # TODO: Change hardcoding of dimensions
+        data_batch = np.zeros((batch_size, 3, 224, 224))
+        for idx, f in enumerate(files_batch):
+            img = matplotlib.image.imread(data_dir+"/"+f)
+            if len(img.shape) == 2:
+                h, w = img.shape
+                img = img.reshape(h, w, 1)
+
+            # Convert to appropriate dimensions 3x224x224
+            img = scale_image(img)
+
+            data_batch[idx, :, :, :] = img
+
+        yield data_batch, labels_batch
 
 
 # Barebones testing code
