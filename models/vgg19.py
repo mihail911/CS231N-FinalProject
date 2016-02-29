@@ -101,7 +101,7 @@ def build_model():
 
     return net
 
-def load_data():
+def load_weights():
     with open("../weights/vgg19.pkl", "r") as f:
         model = pickle.load(f)
 
