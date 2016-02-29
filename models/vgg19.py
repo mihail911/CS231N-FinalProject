@@ -7,12 +7,13 @@ import urllib
 import io
 import skimage.transform
 import sys
-import theano
-import theano.tensor as T
+import os
 
-from os import path
-sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
+# for mihail
+# sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
+# allow imports from directory above
 sys.path.append("..")
+
 
 import lasagne
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
@@ -159,7 +160,7 @@ def build_model(input_var):
 
     return net
 
-def load_data():
+def load_weights():
     with open("../weights/vgg19.pkl", "r") as f:
         model = pickle.load(f)
 
@@ -251,7 +252,10 @@ def compute_accuracy(data_dir, val_filename):
     return acc
 
 
-if __name__ == "__main__":
-    data_dir = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2012_img_val"
-    val_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2014_clsloc_validation_ground_truth.txt"
-    compute_accuracy(data_dir, val_filename)
+if __name__ == '__main__':
+    
+    model = build_model()["prob"]
+    # TODO: fill with your own
+    # data_dir = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2012_img_val"
+    # val_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2014_clsloc_validation_ground_truth.txt"
+    compute_accuracy(model, data_dir, val_filename)
