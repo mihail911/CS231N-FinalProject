@@ -155,7 +155,7 @@ def compute_accuracy_batch(val_fn, data_batch, labels_batch):
     return acc
 
 
-def load_dataset_batch(data_dir, val_filename, batch_size):
+def load_dataset_batch(data_dir, val_filename, batch_size, mean_image):
     """
     Given path to dir, containing image data, load an array of batch_size examples
     """
@@ -180,7 +180,7 @@ def load_dataset_batch(data_dir, val_filename, batch_size):
 
             # Convert to appropriate dimensions 3x224x224
             img = scale_image(img)
-
+            img = img - mean_image[:, None, None]
             data_batch[idx, :, :, :] = img
 
         yield data_batch, labels_batch

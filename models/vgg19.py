@@ -7,6 +7,9 @@ import urllib
 import io
 import skimage.transform
 import sys
+import theano
+import theano.tensor as T
+import time
 import os
 
 # for mihail
@@ -101,7 +104,7 @@ def train_and_predict_funcs(update="nesterov", regularization=0.0):
     val_fn = theano.function([input_var, target_var], [test_loss, test_acc])
 
     # theano function giving output label for given input
-    predict_fn = theano.function([input_var, target_var], test_prediction)
+    predict_fn = theano.function([input_var], test_prediction)
 
     return train_fn, val_fn, predict_fn
 
@@ -160,8 +163,8 @@ def build_model(input_var):
 
     return net
 
-def load_weights():
-    with open("../weights/vgg19.pkl", "r") as f:
+def load_weights(path):
+    with open(path, "r") as f:
         model = pickle.load(f)
 
     classes = model["synset words"]
@@ -221,7 +224,6 @@ def load_images (filename):
         data = pickle.load(f)
     return data
 
-from time import time
 # Process test images and print top 5 labels
 def run_forward(images):
 
@@ -229,9 +231,15 @@ def run_forward(images):
     prob = np.array(lasagne.layers.get_output(net['prob'], images, deterministic=True).eval())
 
 
+def logStats(filename, time, acc, num_ex):
+    with open(filename, 'a') as f:
+        f.write("Time elapsed {0}, Current accuracy {1}, Num Ex {2}\n".format(str(time), str(acc), str(num_ex)))
+
+
 def compute_accuracy(data_dir, val_filename):
     _, val_fn, _ = train_and_predict_funcs()
-
+    # for normalizing images
+    _, mean_image, _ = load_weights("../datasets/vgg19.pkl")
     batch_size = 10
     # TODO: Change hard-coding of number of examples in data
     num_ex = 50000
@@ -239,11 +247,15 @@ def compute_accuracy(data_dir, val_filename):
     total_acc = 0.
     total_ex = 0
     for data_batch, labels_batch in load_dataset_batch(data_dir,
-                                            val_filename, batch_size):
-
+                                            val_filename, batch_size, mean_image):
+        start_time = time.time()
         print "Computed accuracy on {0}".format(str(total_ex))
         acc = compute_accuracy_batch(val_fn, data_batch, labels_batch)
         total_acc += batch_frac*acc
+        time_elapsed = time.time() - start_time
+        print "Time to compute batch acc: ", str(time_elapsed)
+        print "Batch accuracy: ", str(total_acc)
+        logStats("../logs/VanillaVGG19Run.log", time_elapsed, total_acc, total_ex)
 
         total_ex += batch_size
 
@@ -254,8 +266,8 @@ def compute_accuracy(data_dir, val_filename):
 
 if __name__ == '__main__':
     
-    model = build_model()["prob"]
+    #model = build_model()["prob"]
     # TODO: fill with your own
-    # data_dir = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2012_img_val"
-    # val_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2014_clsloc_validation_ground_truth.txt"
-    compute_accuracy(model, data_dir, val_filename)
+    data_dir = "/farmshare/user_data/meric"
+    val_filename = "/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2014_clsloc_validation_ground_truth.txt"
+    compute_accuracy(data_dir, val_filename)
