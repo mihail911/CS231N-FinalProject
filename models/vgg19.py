@@ -13,8 +13,8 @@ import time
 import os
 
 # for mihail
-# sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
-# allow imports from directory above
+sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
+#allow imports from directory above
 sys.path.append("..")
 
 
@@ -27,7 +27,7 @@ from lasagne.layers import DropoutLayer
 from lasagne.layers import LocalResponseNormalization2DLayer as NormLayer
 from lasagne.utils import floatX
 from lasagne.nonlinearities import softmax
-from util.util import load_dataset_batch, compute_accuracy_batch
+from util.util import load_dataset_batch, compute_accuracy_batch, get_image_id_mapping
 
 def prep_image(url, mean_image):
     ext = url.split('.')[-1]
@@ -58,7 +58,7 @@ def prep_image(url, mean_image):
         return None, np.zeros((1,))
 
 
-def train_and_predict_funcs(update="nesterov", regularization=0.0):
+def train_and_predict_funcs(weights=None, update="nesterov", regularization=0.0):
     """
     Create theano functions for computing loss, accuracy, etc. for given model
     :param model:
@@ -70,6 +70,20 @@ def train_and_predict_funcs(update="nesterov", regularization=0.0):
     target_var = T.ivector('targets')
 
     model = build_model(input_var)["prob"]
+
+    #print "Weights before loading..."
+    #print lasagne.layers.get_all_param_values(model, trainable=True)
+    with open("weights_before.txt", "a") as f:
+        f.write("Weights beforeloading...\n")
+        f.write(str(lasagne.layers.get_all_param_values(model, trainable=True)))
+
+    # Load pre-trained weights
+    if weights != None:
+        lasagne.layers.set_all_param_values(model, weights)
+
+    with open("weights_after.txt", "a") as f:
+        f.write("Weights after loading...\n")
+        f.write(str(lasagne.layers.get_all_param_values(model, trainable=True)))
 
     # Create a loss expression for training, i.e., a scalar objective we want
     # to minimize (for our multi-class problem, it is the cross-entropy loss):
@@ -171,7 +185,13 @@ def load_weights(path):
     mean_image = model["mean value"]
     values = model["param values"]
 
-    return classes, mean_image, values
+    idx_to_class_map = {}
+    class_to_idx_map = {}
+    for idx, c in enumerate(classes):
+        idx_to_class_map[idx] = c
+        class_to_idx_map[c] = idx
+
+    return idx_to_class_map, class_to_idx_map, classes, mean_image, values
 
 # Validation Set
 def download_val_images (num_ex, mean_image):
@@ -237,9 +257,14 @@ def logStats(filename, time, acc, num_ex):
 
 
 def compute_accuracy(data_dir, val_filename):
-    _, val_fn, _ = train_and_predict_funcs()
-    # for normalizing images
-    _, mean_image, _ = load_weights("../datasets/vgg19.pkl")
+    # for normalizing images and loading pre-trained weights
+    _, _, _, mean_image, param_values = load_weights("../datasets/vgg19.pkl")
+
+    # TODO: Check that params are being set
+    _, val_fn, predict_fn = train_and_predict_funcs(weights=param_values)
+    
+    img_id_mapping = get_image_id_mapping("/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/parsedData.txt")
+
     batch_size = 10
     # TODO: Change hard-coding of number of examples in data
     num_ex = 50000
@@ -250,7 +275,7 @@ def compute_accuracy(data_dir, val_filename):
                                             val_filename, batch_size, mean_image):
         start_time = time.time()
         print "Computed accuracy on {0}".format(str(total_ex))
-        acc = compute_accuracy_batch(val_fn, data_batch, labels_batch)
+        acc = compute_accuracy_batch(val_fn, predict_fn, data_batch, labels_batch, img_id_mapping)
         total_acc += batch_frac*acc
         time_elapsed = time.time() - start_time
         print "Time to compute batch acc: ", str(time_elapsed)
@@ -266,7 +291,6 @@ def compute_accuracy(data_dir, val_filename):
 
 if __name__ == '__main__':
     
-    #model = build_model()["prob"]
     # TODO: fill with your own
     data_dir = "/farmshare/user_data/meric"
     val_filename = "/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2014_clsloc_validation_ground_truth.txt"

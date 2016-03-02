@@ -4,6 +4,7 @@ A series of util functions for different aspects of project.
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import operator
 import skimage.transform
 import sys
 # Janky work around for making sure the module can find 'Lasagne'
@@ -137,13 +138,12 @@ def prep_image_data(filename, mean_image):
 
     rawim = np.copy(im).astype('uint8')
 
-
-
     im = im - mean_image[:, None, None]
     return rawim, floatX(im[np.newaxis])
 
 
-def compute_accuracy_batch(val_fn, data_batch, labels_batch):
+def compute_accuracy_batch(val_fn, predict_fn, data_batch, labels_batch,
+    img_id_mapping=None):
     """
     Compute accuracy of a data batch
     :param model:
@@ -152,6 +152,21 @@ def compute_accuracy_batch(val_fn, data_batch, labels_batch):
     :return:
     """
     _, acc = val_fn(data_batch, labels_batch)
+    predictions = predict_fn(data_batch)
+    # print "Data batch: ", data_batch
+    # print "Data batch shape:", data_batch.shape
+    print "Gold Labels batch: ", labels_batch
+    for label in labels_batch:
+        print img_id_mapping[label]
+
+    # print "Type gold labels: ", type(labels_batch)
+    predicted_labels = np.argmax(predictions, axis=1)
+    print "Predicted Labels: ", predicted_labels
+    for label in predicted_labels:
+        print img_id_mapping[label]
+
+    # print "Predicted Labels Shape: ", np.argmax(predictions, axis=1).shape
+    # print "Predicted shape: ", predictions.shape
     return acc
 
 
@@ -160,16 +175,28 @@ def load_dataset_batch(data_dir, val_filename, batch_size, mean_image):
     Given path to dir, containing image data, load an array of batch_size examples
     """
     files = [f for f in listdir(data_dir) if isfile(join(data_dir, f))]
-    # Get one-hot representations of validation dataset labels
-    one_hot_rep, labels = get_validation_labels(val_filename)
 
-    # TODO: Make sure to normalize data
+    # Reorder files so they are arranged numerically by img num
+    img_nums = [int(f.split("_")[2].split(".")[0]) for f in files]
+    file_to_img_num = {}
+    for idx, f in enumerate(files):
+        file_to_img_num[f] = img_nums[idx]
+    sorted_files = sorted(file_to_img_num.items(), key=operator.itemgetter(1)) 
+    files = [f[0] for f in sorted_files]
+
+    # Get one-hot representations of validation dataset labels 
+    one_hot_rep, labels = get_validation_labels(val_filename)
+    print "executing this part before for loop"
 
     for start_idx in range(0, len(files) - batch_size + 1, batch_size):
         end_idx = start_idx + batch_size
         files_batch = files[start_idx:end_idx]
         labels_batch = labels[start_idx:end_idx]
 
+        print "-"*100
+        print files_batch
+        print "\n"
+        print labels_batch
         # TODO: Change hardcoding of dimensions
         data_batch = np.zeros((batch_size, 3, 224, 224))
         for idx, f in enumerate(files_batch):
@@ -180,6 +207,8 @@ def load_dataset_batch(data_dir, val_filename, batch_size, mean_image):
 
             # Convert to appropriate dimensions 3x224x224
             img = scale_image(img)
+
+            # TODO: Check if necessary to normalize image here...
             img = img - mean_image[:, None, None]
             data_batch[idx, :, :, :] = img
 
