@@ -13,8 +13,8 @@ import time
 import os
 
 # for mihail
-# sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
-# allow imports from directory above
+sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
+#allow imports from directory above
 sys.path.append("..")
 
 
@@ -178,8 +178,6 @@ def build_model(input_var):
     return net
 
 def load_weights(path):
-    img_id_mapping = get_image_id_mapping("/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/parsedData.txt")
-
     with open(path, "r") as f:
         model = pickle.load(f)
 
@@ -190,27 +188,10 @@ def load_weights(path):
     idx_to_class_map = {}
     class_to_idx_map = {}
     for idx, c in enumerate(classes):
-        idx_to_classes_map[idx] = c
+        idx_to_class_map[idx] = c
         class_to_idx_map[c] = idx
 
-    loaded_classes = set(classes)
-    val_classes = set(img_id_mapping.values()[:1000])
-
-    intersection = set(classes) & set(img_id_mapping.values())
-    #print intersection
-    #print len(intersection)
-    # print "Loaded classes:", len(loaded_classes)
-    # print "non set loaded: ", len(classes)
-    # print "Val classes: ", len(val_classes)
-    # print "non set val: ", len(val_classes)
-    # print loaded_classes - val_classes
-    # print val_classes - set(classes) 
-    # with open("pretrained_classes_list.txt", "a") as f:
-    #     count = 1
-    #     for c in classes:
-    #         f.write("Class num {0}: {1} ".format(count, c))
-    #         count += 1
-    return idx_to_classes_map, class_to_idx_map, classes, mean_image, values
+    return idx_to_class_map, class_to_idx_map, classes, mean_image, values
 
 # Validation Set
 def download_val_images (num_ex, mean_image):
