@@ -37,7 +37,7 @@ class FastGradient(object):
 
 	def build_network(self,net,input_var):
 		if net is 'vgg19':
-			network = InputLayer(shape=(None,3, 224, 224), input_var=input_var)
+			network = InputLayer(shape=(self.num_images,3, 224, 224), input_var=input_var)
 			network = ConvLayer(network, 64, 3, pad=1)
 			network = ConvLayer(network, 64, 3, pad=1)
 			network = PoolLayer(network, 2)
@@ -87,10 +87,8 @@ class FastGradient(object):
 
 
 
-	def adExample(self,X,y,weights,net='vgg19'):
-		input_var = T.tensor4('inputs')
+	def adExample(self,X,y,weights,network,input_var):
 		target_var = T.ivector('targets')
-		network = self.build_network(net,input_var)
 
 		prediction = lasagne.layers.get_output(network)
 
@@ -103,7 +101,7 @@ class FastGradient(object):
 		params = lasagne.layers.get_all_params(network, trainable=True)
 
 		lasagne.layers.set_all_param_values(network, weights)
-		Xnew = np.zeros((1,3,224,224))
+		Xnew = np.zeros((self.num_images,3,224,224))
 		Xnew[:,:,:,:] = X
 
 		grad = T.grad(loss, input_var)
