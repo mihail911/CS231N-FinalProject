@@ -14,8 +14,8 @@ import time
 
 import lasagne
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
-from lasagne.layers.conv import Conv2DLayer as ConvLayer
-from lasagne.layers.pool import Pool2DLayer as PoolLayer
+from lasagne.layers.dnn import Conv2DDNNLayer as ConvLayer
+from lasagne.layers.dnn import Pool2DDNNLayer as PoolLayer
 from lasagne.layers import NonlinearityLayer
 from lasagne.layers import DropoutLayer
 from lasagne.layers import LocalResponseNormalization2DLayer as NormLayer
@@ -104,7 +104,7 @@ def build_model(input_var,batch_size = None):
 
 
 def load_data():
-    model = pickle.load(open('/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/vgg19.pkl'))
+    model = pickle.load(open('../weights/vgg19.pkl'))
 
     classes = model['synset words']
     mean_image= model['mean value']
@@ -353,7 +353,7 @@ def run_fsg_adverserial(tot_images=1,batch_size=1,start=0,end=1):
    
 def main():
     t1 = time.time()
-    run_fsg_adverserial(tot_images=5000,batch_size=5, start=0,end=5000)
+    run_fsg_adverserial(tot_images=128,batch_size=64, start=0,end=128)
     t2 = time.time()
     print "Time taken to execute program is " + str(t2-t1) + " seconds"
 
