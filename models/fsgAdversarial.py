@@ -213,11 +213,13 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     for i in xrange(num_iter):
         if log:
             print "Started Batch Iteration " + str(i+1) + " out of " + str(num_iter)
-
+        t0 = time.time()
         curSet = images[i*batch_size:(i+1)*batch_size,:,:,:]
-        true_prob = np.array(lasagne.layers.get_output(net['prob'], curSet, deterministic=True).eval())
+        true_prob = np.array(lasagne.layers.get_output(net['prob'], curSet, deterministic=True).eval(), dtype=np.float32)
         true_top5 = np.argsort(true_prob,axis=1)[:,-1:-6:-1]
         trueProb_dist += list(true_prob[np.arange(batch_size),true_top5[:,0]])
+        t1 = time.time()
+        print "Time taken for forward pass of {0} : {1} seconds".format(batch_size, t1 - t0)
 
         if log:
             print "Finished forward pass to get the True Image class probabilites......"
@@ -228,12 +230,17 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
             print "Finished generation of adverserial examples for current batch......"
 
         final = final - mean_image[None,:,None,None]
-        adv_prob = np.array(lasagne.layers.get_output(net['prob'], final, deterministic=True).eval())
+        
+	final = final.astype(np.float32)
+	print final.dtype
+
+	adv_prob = np.array(lasagne.layers.get_output(net['prob'], final, deterministic=True).eval(), dtype=np.float32)
         adv_top5 = np.argsort(adv_prob,axis=1)[:,-1:-6:-1]
         advProb_dist += list(adv_prob[np.arange(batch_size),adv_top5[:,0]])
 
         final = final + mean_image[None,:,None,None]
-        if log:
+       
+	if log:
             print "Finished forward pass for adverserial examples"
 
         for k in xrange(batch_size):
@@ -353,7 +360,7 @@ def run_fsg_adverserial(tot_images=1,batch_size=1,start=0,end=1):
    
 def main():
     t1 = time.time()
-    run_fsg_adverserial(tot_images=128,batch_size=64, start=0,end=128)
+    run_fsg_adverserial(tot_images=128,batch_size=32, start=0,end=128)
     t2 = time.time()
     print "Time taken to execute program is " + str(t2-t1) + " seconds"
 
