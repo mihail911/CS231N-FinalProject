@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import cPickle as pickle
@@ -13,8 +14,8 @@ import time
 import os
 
 # for mihail
-sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
-#allow imports from directory above
+# sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
+# allow imports from directory above
 sys.path.append("..")
 
 
@@ -190,7 +191,7 @@ def load_weights(path):
     for idx, c in enumerate(classes):
         idx_to_class_map[idx] = c
         class_to_idx_map[c] = idx
-
+    
     return idx_to_class_map, class_to_idx_map, classes, mean_image, values
 
 # Validation Set
@@ -251,47 +252,51 @@ def run_forward(images):
     prob = np.array(lasagne.layers.get_output(net['prob'], images, deterministic=True).eval())
 
 
-def logStats(filename, time, acc, num_ex):
+def logStats(filename, time, acc, batch_acc, num_ex):
     with open(filename, 'a') as f:
-        f.write("Time elapsed {0}, Current accuracy {1}, Num Ex {2}\n".format(str(time), str(acc), str(num_ex)))
+        f.write("Time elapsed {0}, Current running accuracy {1}, Batch accuracy {2}, Num Ex {3}\n".format(str(time), str(acc), str(batch_acc), str(num_ex)))
 
 
-def compute_accuracy(data_dir, val_filename):
+def compute_accuracy(data_dir, val_filename, lower_idx, upper_idx):
     # for normalizing images and loading pre-trained weights
-    _, _, _, mean_image, param_values = load_weights("../datasets/vgg19.pkl")
+    idx_to_class_map, _, _, mean_image, param_values = load_weights("../datasets/vgg19.pkl")
 
     # TODO: Check that params are being set
     _, val_fn, predict_fn = train_and_predict_funcs(weights=param_values)
     
-    img_id_mapping = get_image_id_mapping("/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/parsedData.txt")
+    #img_id_mapping = get_image_id_mapping("/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/parsedData.txt")
 
     batch_size = 10
     # TODO: Change hard-coding of number of examples in data
-    num_ex = 50000
+    num_ex = float(upper_idx - lower_idx) #50000.0
     batch_frac = batch_size / num_ex
     total_acc = 0.
     total_ex = 0
     for data_batch, labels_batch in load_dataset_batch(data_dir,
-                                            val_filename, batch_size, mean_image):
+                                            val_filename, batch_size, mean_image, lower_idx, upper_idx):
         start_time = time.time()
         print "Computed accuracy on {0}".format(str(total_ex))
-        acc = compute_accuracy_batch(val_fn, predict_fn, data_batch, labels_batch, img_id_mapping)
-        total_acc += batch_frac*acc
+        batch_acc = compute_accuracy_batch(val_fn, predict_fn, data_batch, labels_batch, idx_to_class_map)
+        total_acc += batch_frac*batch_acc
         time_elapsed = time.time() - start_time
         print "Time to compute batch acc: ", str(time_elapsed)
-        print "Batch accuracy: ", str(total_acc)
-        logStats("../logs/VanillaVGG19Run.log", time_elapsed, total_acc, total_ex)
+        print "Batch accuracy: ", str(batch_acc)
+        print "Total accuracy so far: ", str(total_acc)
+        logStats("../logs/VanillaVGG19Run_"+str(lower_idx)+"_"+str(upper_idx)+".log", time_elapsed, total_acc, batch_acc, total_ex)
 
         total_ex += batch_size
 
     print "Accuracy for run: {0}".format(str(total_acc))
 
-    return acc
+    return total_acc
 
 
 if __name__ == '__main__':
-    
+    parser = argparse.ArgumentParser(description="get range of image values")
+    parser.add_argument("--lower", type=int, help="lower bound on img idx")
+    parser.add_argument("--upper", type=int, help="upper bound on img idx") 
+    args = parser.parse_args() 
     # TODO: fill with your own
     data_dir = "/farmshare/user_data/meric"
-    val_filename = "/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/ILSVRC2014_clsloc_validation_ground_truth.txt"
-    compute_accuracy(data_dir, val_filename)
+    val_filename = "/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/val_gold_labels.txt"
+    compute_accuracy(data_dir, val_filename, args.lower, args.upper)
