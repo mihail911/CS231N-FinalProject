@@ -152,25 +152,25 @@ def compute_accuracy_batch(val_fn, predict_fn, data_batch, labels_batch,
     :return:
     """
     _, acc = val_fn(data_batch, labels_batch)
-    predictions = predict_fn(data_batch)
+    #predictions = predict_fn(data_batch)
     # print "Data batch: ", data_batch
     # print "Data batch shape:", data_batch.shape
-    print "Gold Labels batch: ", labels_batch
-    for label in labels_batch:
-        print img_id_mapping[label]
+    # print "Gold Labels batch: ", labels_batch
+    # for label in labels_batch:
+    #     print img_id_mapping[label]
 
     # print "Type gold labels: ", type(labels_batch)
-    predicted_labels = np.argmax(predictions, axis=1)
-    print "Predicted Labels: ", predicted_labels
-    for label in predicted_labels:
-        print img_id_mapping[label]
+    #predicted_labels = np.argmax(predictions, axis=1)
+    # print "Predicted Labels: ", predicted_labels
+    # for label in predicted_labels:
+    #     print img_id_mapping[label]
 
     # print "Predicted Labels Shape: ", np.argmax(predictions, axis=1).shape
     # print "Predicted shape: ", predictions.shape
     return acc
 
 
-def load_dataset_batch(data_dir, val_filename, batch_size, mean_image):
+def load_dataset_batch(data_dir, val_filename, batch_size, mean_image, lower_idx, upper_idx):
     """
     Given path to dir, containing image data, load an array of batch_size examples
     """
@@ -186,7 +186,13 @@ def load_dataset_batch(data_dir, val_filename, batch_size, mean_image):
 
     # Get one-hot representations of validation dataset labels 
     one_hot_rep, labels = get_validation_labels(val_filename)
-    print "executing this part before for loop"
+
+    # Take only subset of images/labels
+    files = files[lower_idx:upper_idx]
+    labels = labels[lower_idx:upper_idx]
+
+    #print "Files: ", files
+    #print "Labels: ", labels
 
     for start_idx in range(0, len(files) - batch_size + 1, batch_size):
         end_idx = start_idx + batch_size
