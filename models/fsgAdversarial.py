@@ -213,6 +213,8 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
 
     sameAdv = []
     sameTrue = []
+    advCount = 0
+    nonAdvCount = 0
 
     for i in xrange(num_iter):
         if log:
@@ -230,47 +232,48 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
 
         newim = rawim[i*batch_size:(i+1)*batch_size,:,:,:].transpose(0,3,1,2)
         
-	back_batch_sz = batch_size / _num_splits
-	ind = 0
-	final = np.zeros_like(newim)
+        back_batch_sz = batch_size / _num_splits
+        ind = 0
+        final = np.zeros_like(newim)
 
-	while ind < batch_size:
-                bt1 = time.time()
-		print "Back pass for batch {0}-{1}".format(ind, ind + back_batch_sz)
-		small_im = np.copy(newim[ind : ind + back_batch_sz, :, :, :])	
-		print "shape of small_im:", small_im.shape
-			
-		start_idx = i*batch_size + ind
-		end_idx = min(start_idx + back_batch_sz, (i+1)*batch_size)
-		print "start - end: ", start_idx - end_idx
-		print "gold labels size:", gold_labels[start_idx:end_idx].shape
-		
-		final[ind : ind + back_batch_sz, :, :, :] = cls.adExample(small_im, 
-			np.array(gold_labels[start_idx:end_idx]),
-			model['param values'],
-			net['prob'],
-			input_var)
-	        bt2 = time.time()
-		print "Took {0} seconds for mini-mini-batch back".format(bt2 - bt1)
-		ind += back_batch_sz
+        while ind < batch_size:
+            bt1 = time.time()
+            print "Back pass for batch {0}-{1}".format(ind, ind + back_batch_sz)
+            small_im = np.copy(newim[ind : ind + back_batch_sz, :, :, :])	
+            print "shape of small_im:", small_im.shape
 
-	if log:
-      		print "Finished generation of adverserial examples for current batch......"
+            start_idx = i*batch_size + ind
+            end_idx = min(start_idx + back_batch_sz, (i+1)*batch_size)
+            print "start - end: ", start_idx - end_idx
+            print "gold labels size:", gold_labels[start_idx:end_idx].shape
+
+            final[ind : ind + back_batch_sz, :, :, :] = cls.adExample(small_im, 
+                np.array(gold_labels[start_idx:end_idx]),
+                model['param values'],
+                net['prob'],
+                input_var)
+                bt2 = time.time()
+            print "Took {0} seconds for mini-mini-batch back".format(bt2 - bt1)
+            ind += back_batch_sz
+
+        if log:
+            print "Finished generation of adverserial examples for current batch......"
 
         final = final - mean_image[None,:,None,None]
         
-	final = final.astype(np.float32)
-	print final.dtype
+        final = final.astype(np.float32)
+        print final.dtype
 
-	adv_prob = np.array(lasagne.layers.get_output(net['prob'], final, deterministic=True).eval(), dtype=np.float32)
+        adv_prob = np.array(lasagne.layers.get_output(net['prob'], final, deterministic=True).eval(), dtype=np.float32)
         adv_top5 = np.argsort(adv_prob,axis=1)[:,-1:-6:-1]
         advProb_dist += list(adv_prob[np.arange(batch_size),adv_top5[:,0]])
 
         final = final + mean_image[None,:,None,None]
        
-	if log:
+        if log:
             print "Finished forward pass for adverserial examples"
 
+        curCount = 0
         for k in xrange(batch_size):
             advLabel = adv_top5[k,0]
             trueLabel = true_top5[k,0]
@@ -280,9 +283,17 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
                 actualTrueProb.append(true_prob[k,trueLabel])
                 actualTrueLabel.append(trueLabel)
                 advUrl.append(valid_urls[i*batch_size+k])
+                imName = '/mnt/advResults/advImage'+str(advCount)+'.png'
+                imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
+                advCount += 1
             else:
                 sameAdv.append(adv_prob[k,advLabel])
                 sameTrue.append(true_prob[k,trueLabel])
+                imName = '/mnt/advResults/nonAdvImage'+str(nonAdvCount)+'.png'
+                imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
+                nonAdvCount += 1
+                
+            curCount += 1
 
 
 #            plt.subplot(121)
@@ -312,13 +323,13 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     advUrl = np.asarray(advUrl)
 
     # Open files to write the data collected into
-    text1 = open("highAdvProb1.txt","w")
-    text2 = open("highAdvLabel1.txt","w")
-    text3 = open("highTrueProb1.txt","w")
-    text4 = open("highTrueLabel1.txt","w")
-    text5 = open("highAdvUrl1.txt","w")
-    text6 = open("trueProb_dist1.txt","w")
-    text7 = open("advProb_dist1.txt","w")
+    text1 = open("highAdvProb.txt","w")
+    text2 = open("highAdvLabel.txt","w")
+    text3 = open("highTrueProb.txt","w")
+    text4 = open("highTrueLabel.txt","w")
+    text5 = open("highAdvUrl.txt","w")
+    text6 = open("trueProb_dist.txt","w")
+    text7 = open("advProb_dist.txt","w")
 
     #   Index into the arrays to find the elements having high confidence adervarial examples
     highAdvProb = actualAdvProb[actualAdvProb >= 0.5]
@@ -342,7 +353,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.title('Frequency Distribution of Confidences of VGG Predictions')
     plt.xlabel('Confidences')
     plt.ylabel('Count')
-    plt.savefig("true_prob_dist-1.pdf")
+    plt.savefig("true_prob_dist.pdf")
     plt.figure()
 
     trueProb_dist = np.asarray(trueProb_dist)
@@ -352,7 +363,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.title('\n'.join(wrap(title,60)))
     plt.xlabel('Confidences')
     plt.ylabel('Count')
-    plt.savefig("adv_prob_dist-1.pdf")
+    plt.savefig("adv_prob_dist.pdf")
     plt.figure()
 
     advProb_dist = np.asarray(advProb_dist)
@@ -370,7 +381,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.title('\n'.join(wrap(title,60)))
     plt.xlabel('Confidences of true predictions')
     plt.ylabel('Counts')
-    plt.savefig("true_having_high_adv-1.pdf")
+    plt.savefig("true_having_high_adv.pdf")
     plt.figure()
 
     plt.hist(sameTrue,bins=binSplit)
@@ -378,7 +389,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.title('\n'.join(wrap(title,60)))
     plt.xlabel('Confidences of true predictions')
     plt.ylabel('Counts')
-    plt.savefig("true_having_same_adv-1.pdf")
+    plt.savefig("true_having_same_adv.pdf")
 
     np.savetxt(text6,trueProb_dist, fmt='%1.8f')
     np.savetxt(text7,advProb_dist, fmt='%1.8f')
