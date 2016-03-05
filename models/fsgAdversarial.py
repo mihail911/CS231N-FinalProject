@@ -1,8 +1,10 @@
 import numpy as np
+import scipy
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
+import sys
+sys.path.append('/home/ubuntu/.local/lib/python2.7/site-packages/')
 import pickle
 import urllib
 import io
@@ -223,7 +225,8 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
         curSet = images[i*batch_size:(i+1)*batch_size,:,:,:]
         true_prob = np.array(lasagne.layers.get_output(net['prob'], curSet, deterministic=True).eval(), dtype=np.float32)
         true_top5 = np.argsort(true_prob,axis=1)[:,-1:-6:-1]
-        trueProb_dist += list(true_prob[np.arange(batch_size),true_top5[:,0]])
+        print "Size of true probabilities: " + str(true_prob5[:,0])
+	trueProb_dist += list(true_prob[np.arange(batch_size),true_top5[:,0]])
         t1 = time.time()
         print "Time taken for forward pass of {0} : {1} seconds".format(batch_size, t1 - t0)
 
@@ -252,7 +255,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
                 model['param values'],
                 net['prob'],
                 input_var)
-                bt2 = time.time()
+            bt2 = time.time()
             print "Took {0} seconds for mini-mini-batch back".format(bt2 - bt1)
             ind += back_batch_sz
 
@@ -266,6 +269,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
 
         adv_prob = np.array(lasagne.layers.get_output(net['prob'], final, deterministic=True).eval(), dtype=np.float32)
         adv_top5 = np.argsort(adv_prob,axis=1)[:,-1:-6:-1]
+	print "Size of adversarial probabilities: " + str(adv_top5)
         advProb_dist += list(adv_prob[np.arange(batch_size),adv_top5[:,0]])
 
         final = final + mean_image[None,:,None,None]
@@ -284,13 +288,13 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
                 actualTrueLabel.append(trueLabel)
                 advUrl.append(valid_urls[i*batch_size+k])
                 imName = '/mnt/advResults/advImage'+str(advCount)+'.png'
-                imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
+                scipy.misc.imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
                 advCount += 1
             else:
                 sameAdv.append(adv_prob[k,advLabel])
                 sameTrue.append(true_prob[k,trueLabel])
                 imName = '/mnt/advResults/nonAdvImage'+str(nonAdvCount)+'.png'
-                imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
+                scipy.misc.imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
                 nonAdvCount += 1
                 
             curCount += 1
@@ -406,4 +410,4 @@ def main():
 
 _num_splits = 3
 if __name__ == "__main__":
-    main()
+	main()

@@ -15,10 +15,11 @@ import urllib
 import io
 import skimage.transform
 
+sys.path.append('/home/ubuntu/.local/lib/python2.7/site-packages/')
 import lasagne
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
-from lasagne.layers.conv import Conv2DLayer as ConvLayer
-from lasagne.layers.pool import Pool2DLayer as PoolLayer
+from lasagne.layers.dnn import Conv2DDNNLayer as ConvLayer
+from lasagne.layers.dnn import Pool2DDNNLayer as PoolLayer
 from lasagne.layers import NonlinearityLayer
 from lasagne.layers import DropoutLayer
 from lasagne.layers import LocalResponseNormalization2DLayer as NormLayer
