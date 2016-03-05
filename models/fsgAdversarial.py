@@ -1,5 +1,8 @@
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
 import pickle
 import urllib
 import io
@@ -169,8 +172,9 @@ def load_gold_labels():
         
     return np.asarray(labels)
 
+# TODO: change num_images 32 to a more global backprop pass size
 def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True):
-    cls = FastGradient(num_images = batch_size,input_dim=(3,224,224), eps=0.85, 
+    cls = FastGradient(num_images = batch_size/_num_splits,input_dim=(3,224,224), eps=0.85, 
                    loss='softmax')
     if log:
         print "Finished creating Fast Gradient Sign Class......"
@@ -225,9 +229,33 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
             print "Finished forward pass to get the True Image class probabilites......"
 
         newim = rawim[i*batch_size:(i+1)*batch_size,:,:,:].transpose(0,3,1,2)
-        final = cls.adExample(newim,np.array(gold_labels[i*batch_size:(i+1)*batch_size]),model['param values'],net['prob'],input_var)
-        if log:
-            print "Finished generation of adverserial examples for current batch......"
+        
+	back_batch_sz = batch_size / _num_splits
+	ind = 0
+	final = np.zeros_like(newim)
+
+	while ind < batch_size:
+                bt1 = time.time()
+		print "Back pass for batch {0}-{1}".format(ind, ind + back_batch_sz)
+		small_im = np.copy(newim[ind : ind + back_batch_sz, :, :, :])	
+		print "shape of small_im:", small_im.shape
+			
+		start_idx = i*batch_size + ind
+		end_idx = min(start_idx + back_batch_sz, (i+1)*batch_size)
+		print "start - end: ", start_idx - end_idx
+		print "gold labels size:", gold_labels[start_idx:end_idx].shape
+		
+		final[ind : ind + back_batch_sz, :, :, :] = cls.adExample(small_im, 
+			np.array(gold_labels[start_idx:end_idx]),
+			model['param values'],
+			net['prob'],
+			input_var)
+	        bt2 = time.time()
+		print "Took {0} seconds for mini-mini-batch back".format(bt2 - bt1)
+		ind += back_batch_sz
+
+	if log:
+      		print "Finished generation of adverserial examples for current batch......"
 
         final = final - mean_image[None,:,None,None]
         
@@ -360,10 +388,11 @@ def run_fsg_adverserial(tot_images=1,batch_size=1,start=0,end=1):
    
 def main():
     t1 = time.time()
-    run_fsg_adverserial(tot_images=128,batch_size=32, start=0,end=128)
+    run_fsg_adverserial(tot_images=64*_num_splits,batch_size=32*_num_splits, start=0,end=64*_num_splits)
     t2 = time.time()
-    print "Time taken to execute program is " + str(t2-t1) + " seconds"
+    print "Time taken to generate {0} adv examples is {1} seconds".format(64*_num_splits, t2-t1)
 
 
+_num_splits = 3
 if __name__ == "__main__":
     main()

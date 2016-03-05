@@ -1,4 +1,4 @@
-#!/usr/bin/python
+# coding: utf-8
 import sys
 import re
 import collections
@@ -34,6 +34,8 @@ class FastGradient(object):
 		self.eps = eps
 		self.dtype = dtype
 		self.loss = loss
+		self.built_backnet = None
+	
 
 	def build_network(self,net,input_var):
 		if net is 'vgg19':
@@ -89,7 +91,13 @@ class FastGradient(object):
 
 	def adExample(self,X,y,weights,network,input_var):
 		target_var = T.ivector('targets')
-
+                
+		if self.built_backnet is None:
+			self.built_backnet = self.build_network('vgg19', input_var)
+		network = self.built_backnet
+		# YES, this does clobber the namespace
+		# TODO: fix
+	
 		prediction = lasagne.layers.get_output(network)
 
 		if self.loss is 'softmax':
@@ -107,6 +115,9 @@ class FastGradient(object):
 		grad = T.grad(loss, input_var)
 		final_examples = X + self.eps*T.sgn(grad)
 		func1 = theano.function([input_var,target_var], final_examples, allow_input_downcast=True)
+		
+		print "xnew shape", Xnew.shape
+		print "y shape", y.shape
 		result = func1(Xnew,y)
 		return result
 
