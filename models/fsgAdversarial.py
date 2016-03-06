@@ -286,34 +286,26 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
                 actualAdvLabel.append(advLabel)
                 actualTrueProb.append(true_prob[k,trueLabel])
                 actualTrueLabel.append(trueLabel)
-                advUrl.append(valid_urls[i*batch_size+k])
-                imName = '/mnt/advResults/advImage'+str(advCount)+'.png'
+                imName = ''
+                if adv_prob[k,advLabel] >= 0.5
+                    advHighUrl.append(valid_urls[i*batch_size+k])
+                    imName = '/mnt/advResults/high_{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(trueLabel),str(true_prob[k,trueLabel]),
+                                                                           str(advLabel),str(adv_prob[k,advLabel]))
+                else:
+                    advLowUrl.append(valid_urls[i*batch_size+k])
+                    imName = '/mnt/advResults/{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(trueLabel),str(true_prob[k,trueLabel]),
+                                                                           str(advLabel),str(adv_prob[k,advLabel]))
                 scipy.misc.imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
                 advCount += 1
             else:
                 sameAdv.append(adv_prob[k,advLabel])
                 sameTrue.append(true_prob[k,trueLabel])
-                imName = '/mnt/advResults/nonAdvImage'+str(nonAdvCount)+'.png'
+                imName = '/mnt/advResults/nonAdvImage_{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(trueLabel),str(true_prob[k,trueLabel]),
+                                                                           str(advLabel),str(adv_prob[k,advLabel]))
                 scipy.misc.imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
                 nonAdvCount += 1
                 
             curCount += 1
-
-
-#            plt.subplot(121)
-#            plt.imshow(rawim[i*batch_size+k,:,:,:].astype('uint8'))
-#            for n, label in enumerate(true_top5[k,:]):
-#                plt.text(0,260,'Original Image')
-#                plt.text(0, 280 + n * 20, '{}. {} {} %'.format(n+1, classes[label],true_prob[k,label]*100), fontsize=12)
-#
-#            plt.subplot(122)
-#            plt.imshow(final[k,:,:,:].transpose(1,2,0).astype('uint8'))
-#            for n, label in enumerate(adv_top5[k,:]):
-#                plt.text(0,260,'Adverserial Image')
-#                plt.text(340, 280 + n * 20, '{}. {} {} %'.format(n+1, classes[label],adv_prob[k,label]*100), fontsize=12)
-
-
- #           plt.show() 
 
         if log:
             print "Finished Batch Iteration " + str(i+1) + " out of " + str(num_iter)
@@ -324,30 +316,24 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     actualAdvLabel = np.asarray(actualAdvLabel)
     actualTrueProb = np.asarray(actualTrueProb)
     actualTrueLabel = np.asarray(actualTrueLabel)
-    advUrl = np.asarray(advUrl)
+    advHighUrl = np.asarray(advHighUrl)
+    advLowUrl = np.asarray(advLowUrl)
 
     # Open files to write the data collected into
-    text1 = open("highAdvProb.txt","w")
-    text2 = open("highAdvLabel.txt","w")
-    text3 = open("highTrueProb.txt","w")
-    text4 = open("highTrueLabel.txt","w")
-    text5 = open("highAdvUrl.txt","w")
-    text6 = open("trueProb_dist.txt","w")
-    text7 = open("advProb_dist.txt","w")
+    text2 = open("advLowUrl.txt","w")
+    text1 = open("advHighUrl.txt","w")
+    text3 = open("trueProb_dist.txt","w")
+    text4 = open("advProb_dist.txt","w")
 
     #   Index into the arrays to find the elements having high confidence adervarial examples
     highAdvProb = actualAdvProb[actualAdvProb >= 0.5]
     highAdvLabel = actualAdvLabel[actualAdvProb >= 0.5]
     highTrueProb = actualTrueProb[actualAdvProb >= 0.5]
     highTrueLabel = actualTrueLabel[actualAdvProb >= 0.5]
-    advUrl = advUrl[actualAdvProb >= 0.5]
 
     #   Save the data collected to files
-    np.savetxt(text1,highAdvProb, fmt='%1.8f')
-    np.savetxt(text2,highAdvLabel, fmt='%s')
-    np.savetxt(text3,highTrueProb, fmt='%1.8f')
-    np.savetxt(text4,highTrueLabel, fmt='%s')
-    np.savetxt(text5,advUrl, fmt='%s')
+    np.savetxt(text1,advHighUrl, fmt='%s')
+    np.savetxt(text2,advLowUrl, fmt='%s')
 
 
     highTrueProb = list(highTrueProb)
@@ -377,7 +363,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.title('\n'.join(wrap(title,60)))
     plt.xlabel('Confidences of true predictions')
     plt.ylabel('Counts')
-    plt.savefig("true_having_some_adv-1.pdf")
+    plt.savefig("true_having_some_adv.pdf")
     plt.figure()
 
     plt.hist(highTrueProb,bins=binSplit)
@@ -395,8 +381,8 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.ylabel('Counts')
     plt.savefig("true_having_same_adv.pdf")
 
-    np.savetxt(text6,trueProb_dist, fmt='%1.8f')
-    np.savetxt(text7,advProb_dist, fmt='%1.8f')
+    np.savetxt(text3,trueProb_dist, fmt='%1.2f')
+    np.savetxt(text4,advProb_dist, fmt='%1.2f')
     
 def run_fsg_adverserial(tot_images=1,batch_size=1,start=0,end=1):
     find_adverserial_examples(tot_images=tot_images,batch_size=batch_size,start=start,end=end,log=True)
