@@ -8,7 +8,7 @@ echo $username
 echo $synset
 echo $akey
 # in util/, want datasets/
-datapath="../datasets/"
+datapath="/mnt/data/"
 
 # Download synset tar
 url="http://www.image-net.org/download/synset"
@@ -24,7 +24,8 @@ curl -J -O \
     $url
 
 mkdir -p "$datapath$synset"
-tar xzf "$synset.tar" -C "$datapath$synset/"
+echo "tar xzf $synset.tar -C $datapath$synset/"
+tar xf "$synset.tar" -C "$datapath$synset/"
 rm "$synset.tar"
 
 # Look through images, discard ones that cannot be the right size 

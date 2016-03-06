@@ -55,7 +55,7 @@ class DiskReader (object):
         
         q, proc = self.activeQueues[synset]
         result = q.get()
-
+	print "images shape: ", result.shape
         if not delete:
             self.data[synset] = result
         print "processing finished"
@@ -79,7 +79,7 @@ class DiskReader (object):
 
         ''' Processes the images from a directory on disk '''
         count = 0
-        prefix = '../datasets/{0}/'.format(synset)
+        prefix = '/mnt/data/{0}/'.format(synset)
 
         self.ensureDataExists(prefix, synset)
 
@@ -112,9 +112,8 @@ class DiskReader (object):
                 print count    
             # Convert to BGR
             images[i, :, :, :] = im[::-1, :, :]
-
-        images -= mean_image[None,:,None,None]
-        q.put( floatX(images[np.newaxis]) )
+        print images.shape
+        q.put( floatX(images) )
 
 #-------------------------------
 if __name__ == '__main__':

@@ -13,6 +13,7 @@ import skimage.transform
 from textwrap import wrap
 import os
 import sys
+import shutil
 
 import multiprocessing as mp
     
@@ -53,22 +54,26 @@ class Bootstrap(object):
         ''' 
 
         images = self.reader.get(synset)
-        self.reader.startRequest(nextsyn)
-
+        if nextsyn:
+	    self.reader.startRequest(nextsyn)
+	print images.shape
         N, C, H, W = images.shape
-        features = np.zeros (N, 4096)
+        features = np.zeros ((N, 4096))
 
         for n in xrange(0, N, batch_size):
-
+	    t0 = time.time()
             curSet = images[n:n+batch_size, :, :, :]
+	    print "beginning run on {0} : {1}".format(n, n+batch_size)
             features[n:n+batch_size, :] = np.array(lasagne.layers.get_output(
                                                     net['fc6'], curSet, deterministic=True).eval(), 
                                                     dtype=np.float32)
+	    t1 = time.time()
+	    print "batch {0} - {1} : took {2:.4f} seconds".format(n, n+batch_size, t1 - t0)
+            
+	return curSet, features
 
-        return curSet, features
 
-
-    def sample (features, method='l2', k=300, num_samples=1000):
+    def sample (self, synset, features, method='l2', k=50, num_samples=3000, pc=128):
         '''  
         Bootstraps on the input space using the given method.
 
@@ -90,10 +95,21 @@ class Bootstrap(object):
                 indices = np.random.choice(np.arange(N), size=k, replace=True)
                 samp = features[indices] 
                 # find l2 distances to mean (0)
-                samp_l2 = np.sum(samp*samp) / N
+                samp_l2 = np.sum(samp*samp) / k
                 samples[i] = samp_l2
+		
+	    # Run PCA to 128 features
+	std = np.std (features, axis=0)
+	features /= std
 
-        return samples            
+	U, s, Vt = np.linalg.svd(features, full_matrices=False)
+	S = np.diag(s)
+	f_hat = np.dot(U[:, :pc], np.dot(S[:pc, :pc], V[:,:pc].T))
+	print "Using first 128 PCs, MSE = %.6G" %(np.mean((features - f_hat)**2))
+        with open('{0}_pca_128'.format(synset)) as f:
+		pickle.dump(f_hat, f)
+	
+	return samples            
 
 
 #-------------
@@ -158,29 +174,35 @@ def prepare_vgg16():
     # Load vgg(16) weights
     model, classes, mean_image = load_data()
     # update only up to the fully connected layer
-    lasagne.layers.set_all_param_values(net['fc6'], model['param values'][:-6])
+    lasagne.layers.set_all_param_values(net['fc6'], model['param values'][:-4])
     return net, mean_image
 
 
-batch_size = 96
+batch_size = 128
 if __name__ == '__main__':
-    
+        
     synsets = ['n02105056']
-    if sys.argv[1] == '-p' or sys.argv[1] == '--pipe': # pipe in synsets to use to stdin.
+    if len(sys.argv) > 1 and (sys.argv[1] == '-p' or sys.argv[1] == '--pipe'): # pipe in synsets to use to stdin.
         synsets = sys.stdin.read().split('\n')[:-1]
 
 
     net, mean_image = prepare_vgg16()
     boot = Bootstrap(net)
-
-    syn = synset[0]        
+    
+    syn = synsets[0]        
+    synsets.append(None)
     for i in xrange(1, len(synsets)):
-        t0 = time.time()
-        current, features = boot.forward(syn, synsets[i], batch_size)
-        samples = boot.sample() 
-        with open("{0}_samples".format(syn)) as f:
+	print "starting new batch"        
+	t0 = time.time()
+        current, features = boot.forward(syn, synsets[i])
+       	tbefore = time.time()
+	samples = boot.sample(syn, features)
+	tafter = time.time() 
+        with open("{0}_samples".format(syn), 'w+') as f:
             pickle.dump(samples, f)
-        t1 = time.time()
+        shutil.rmtree ('/mnt/data/{0}'.format(syn))
+	t1 = time.time()
+	print "Took {0:.3f} seconds to bootstrap".format(tafter - tbefore)
         print "took {0:.3f} seconds to run syns {1}".format(t1 - t0, syn)
         syn = synsets[i]
-
+    
