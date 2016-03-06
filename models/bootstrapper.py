@@ -105,8 +105,10 @@ class Bootstrap(object):
 	U, s, Vt = np.linalg.svd(features, full_matrices=False)
 	S = np.diag(s)
 	V = Vt.T
+	print U.shape, S.shape, V.shape	
 
 	f_hat = np.dot(U[:, :pc], np.dot(S[:pc, :pc], V[:,:pc].T))
+	print f_hat.shape
 	print "Using first 128 PCs, MSE = %.6G" %(np.mean((features - f_hat)**2))
         with open('{0}_pca_128'.format(synset), 'w+') as f:
 		pickle.dump(f_hat, f)
