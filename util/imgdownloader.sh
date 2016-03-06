@@ -1,7 +1,7 @@
 #!/bin/bash
 
 synset=${1-n01440764}
-akey=$(cat ACCESS_KEY)
+akey=$(cat ../util/ACCESS_KEY)
 username=cjbillov
 
 echo $username
