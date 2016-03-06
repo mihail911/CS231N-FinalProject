@@ -100,13 +100,15 @@ class Bootstrap(object):
 		
 	    # Run PCA to 128 features
 	std = np.std (features, axis=0)
-	features /= std
+	features /= (std + 1e-8)
 
 	U, s, Vt = np.linalg.svd(features, full_matrices=False)
 	S = np.diag(s)
+	V = Vt.T
+
 	f_hat = np.dot(U[:, :pc], np.dot(S[:pc, :pc], V[:,:pc].T))
 	print "Using first 128 PCs, MSE = %.6G" %(np.mean((features - f_hat)**2))
-        with open('{0}_pca_128'.format(synset)) as f:
+        with open('{0}_pca_128'.format(synset), 'w+') as f:
 		pickle.dump(f_hat, f)
 	
 	return samples            
