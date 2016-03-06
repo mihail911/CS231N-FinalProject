@@ -11,9 +11,18 @@ echo $akey
 datapath="../datasets/"
 
 # Download synset tar
-url="http://www.image-net.org/download/synset?wnid=$synset&username=$username&accesskey=$akey&release=latest&src=stanford"
+url="http://www.image-net.org/download/synset"
 
-curl -J -O $url
+params="wnid=$synset&username=$username&accesskey=$akey&release=latest&src=stanford"
+
+curl -J -O \
+    --data-urlencode wnid=$synset \
+    --data-urlencode username=$username \
+    --data-urlencode accesskey=$akey \
+    --data           release=latest \
+    --data           src=stanford \
+    $url
+
 mkdir -p "$datapath$synset"
 tar xzf "$synset.tar" -C "$datapath$synset/"
 rm "$synset.tar"
