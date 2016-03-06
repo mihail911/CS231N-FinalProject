@@ -29,8 +29,8 @@ from lasagne.nonlinearities import softmax
 
 
 def prep_image(url,mean_image):
-    ext = url.split('.')[-1]
-    im = plt.imread(io.BytesIO(urllib.urlopen(url).read()), ext)
+    # ext = url.split('.')[-1]
+    im = plt.imread(url, 'png')
     # Resize so smallest dim = 256, preserving aspect ratio
 #     print url
     if im.ndim < 3:
@@ -121,8 +121,9 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     ''' 
     Dynamically downloads sample images from ImageNet.  
     '''
-    index = urllib.urlopen('http://www.image-net.org/challenges/LSVRC/2012/ori_urls/indexval.html').read()
+    # index = urllib.urlopen('http://www.image-net.org/challenges/LSVRC/2012/ori_urls/indexval.html').read()
     image_urls = index.split('<br>')
+    allFiles = os.listdir('/mnt/val_images');
     final_labels = gold_labels.copy()
     np.random.seed(61)
     np.random.shuffle(image_urls)
@@ -130,9 +131,6 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     np.random.shuffle(final_labels)
     result_labels = np.zeros(num_ex)
     valid_urls = []
-    
-    allImages = []
-    path_to_im = " /farmshare/user_data/meric"
 
     images = np.zeros ((num_ex, 3, 224, 224), dtype=np.float32)
     i = 0
@@ -140,12 +138,12 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     used=True
     rawim = np.zeros ((num_ex, 224, 224, 3), dtype=np.float32)
     tot = 0
-    for im_url in image_urls[start:end+500]:
+    for j in xrange(start,end):
         # only use quick downloads on flickr
-        if 'static.flickr' not in im_url:
-            continue
-            
-        rawimTemp, result = prep_image (im_url, mean_image)
+        # if 'static.flickr' not in im_url:
+        #     continue
+        im = allFiles[j]
+        rawimTemp, result = prep_image (im, mean_image)
         if result is None:
             continue
     
@@ -155,7 +153,7 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
             rawim[i,:,:,:] = rawimTemp
             i += 1
             tot += 1
-            valid_urls.append(im_url)
+            valid_urls.append(im)
            
         if i >= num_ex: 
             break
@@ -185,15 +183,14 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     if log:
         print "Finished loading data......"
 
-    gold_labels = load_gold_labels()
+    all_gold_labels = load_gold_labels()
     if log:
         print "Finished loading golden labels......"
 
-    rawim, images,gold_labels,valid_urls = download_val_images(tot_images, mean_image, gold_labels,start,end)
-    if log:
-        print "Finished downloading images, normalizing them and extracting required number of images and labels......"
+    # rawim, images,gold_labels,valid_urls = download_val_images(tot_images, mean_image, gold_labels,start,end)
+    # if log:
+    #     print "Finished downloading images, normalizing them and extracting required number of images and labels......"
 
-    print len(valid_urls)
     input_var = T.tensor4('inputs')
     net = build_model(input_var,batch_size=batch_size)
     lasagne.layers.set_all_param_values(net['prob'], model['param values'])
@@ -204,7 +201,13 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
         print "Input the correct batch size and/or the total images in the dataset"
         exit(1)
 
-    num_iter = (len(valid_urls))/batch_size
+    rem = _num_images%batch_size
+    num_iter = 0
+    if rem == 0:
+        num_iter = _num_images/batch_size
+    else:
+        num_iter = _num_images/batch_size + 1
+    
     trueProb_dist = []
     advProb_dist = []
     actualAdvProb = []
@@ -219,14 +222,23 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     advCount = 0
     nonAdvCount = 0
 
+    cur_start = start
+    finalEnd = end
+    cur_end = batch_size
     for i in xrange(num_iter):
         if log:
             print "Started Batch Iteration " + str(i+1) + " out of " + str(num_iter)
+        print "Current Start image is " + str(cur_start)
+        print "Current End image is " + str(cur_end)
+        rawim, images,gold_labels,valid_urls = download_val_images(cur_end - cur_start, mean_image,
+                                                                   all_gold_labels,cur_start,cur_end)
+        if log:
+            print "Finished downloading images, normalizing them and extracting required number of images and labels for iteration " + str(i+1) +  " ......"
         t0 = time.time()
         curSet = np.copy(images[i*batch_size:(i+1)*batch_size,:,:,:])
         true_prob = np.array(lasagne.layers.get_output(net['prob'], curSet, deterministic=True).eval(), dtype=np.float32)
         true_top5 = np.argsort(true_prob,axis=1)[:,-1:-6:-1]
-	trueProb_dist += list(true_prob[np.arange(batch_size),true_top5[:,0]])
+        trueProb_dist += list(true_prob[np.arange(batch_size),true_top5[:,0]])
         t1 = time.time()
         print "Time taken for forward pass of {0} : {1} seconds".format(batch_size, t1 - t0)
 
@@ -303,6 +315,10 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
                 
             curCount += 1
 
+        cur_start += batch_size
+        cur_end += batch_size
+        if cur_end > finalEnd:
+            curEnd = finalEnd
         if log:
             print "Finished Batch Iteration " + str(i+1) + " out of " + str(num_iter)
 
@@ -389,7 +405,7 @@ def main():
     t2 = time.time()
     print "Time taken to generate {0} adv examples is {1} seconds".format(64*_num_splits, t2-t1)
 
-
+_num_images = 50000
 _num_splits = 782
 if __name__ == "__main__":
 	main()
