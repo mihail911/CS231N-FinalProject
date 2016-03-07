@@ -14,6 +14,7 @@ import time
 from os import listdir
 from os.path import isfile, join
 from lasagne.utils import floatX
+from math import sqrt, ceil
 
 
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
@@ -152,25 +153,25 @@ def compute_accuracy_batch(val_fn, predict_fn, data_batch, labels_batch,
     :return:
     """
     _, acc = val_fn(data_batch, labels_batch)
-    predictions = predict_fn(data_batch)
+    #predictions = predict_fn(data_batch)
     # print "Data batch: ", data_batch
     # print "Data batch shape:", data_batch.shape
-    print "Gold Labels batch: ", labels_batch
-    for label in labels_batch:
-        print img_id_mapping[label]
+    # print "Gold Labels batch: ", labels_batch
+    # for label in labels_batch:
+    #     print img_id_mapping[label]
 
     # print "Type gold labels: ", type(labels_batch)
-    predicted_labels = np.argmax(predictions, axis=1)
-    print "Predicted Labels: ", predicted_labels
-    for label in predicted_labels:
-        print img_id_mapping[label]
+    #predicted_labels = np.argmax(predictions, axis=1)
+    # print "Predicted Labels: ", predicted_labels
+    # for label in predicted_labels:
+    #     print img_id_mapping[label]
 
     # print "Predicted Labels Shape: ", np.argmax(predictions, axis=1).shape
     # print "Predicted shape: ", predictions.shape
     return acc
 
 
-def load_dataset_batch(data_dir, val_filename, batch_size, mean_image):
+def load_dataset_batch(data_dir, val_filename, batch_size, mean_image, lower_idx, upper_idx):
     """
     Given path to dir, containing image data, load an array of batch_size examples
     """
@@ -186,7 +187,13 @@ def load_dataset_batch(data_dir, val_filename, batch_size, mean_image):
 
     # Get one-hot representations of validation dataset labels 
     one_hot_rep, labels = get_validation_labels(val_filename)
-    print "executing this part before for loop"
+
+    # Take only subset of images/labels
+    files = files[lower_idx:upper_idx]
+    labels = labels[lower_idx:upper_idx]
+
+    #print "Files: ", files
+    #print "Labels: ", labels
 
     for start_idx in range(0, len(files) - batch_size + 1, batch_size):
         end_idx = start_idx + batch_size
@@ -214,6 +221,47 @@ def load_dataset_batch(data_dir, val_filename, batch_size, mean_image):
 
         yield data_batch, labels_batch
 
+def visualize_grid(Xs, ubound=255.0, padding=1):
+  """
+  Reshape a 4D tensor of image data to a grid for easy visualization.
+
+  Inputs:
+  - Xs: Data of shape (N, H, W, C)
+  - ubound: Output grid will have values scaled to the range [0, ubound]
+  - padding: The number of blank pixels between elements of the grid
+  """
+  (N, H, W, C) = Xs.shape
+  grid_size = int(ceil(sqrt(N)))
+  grid_height = H * grid_size + padding * (grid_size - 1)
+  grid_width = W * grid_size + padding * (grid_size - 1)
+  grid = np.zeros((grid_height, grid_width, C))
+  next_idx = 0
+  y0, y1 = 0, H
+  for y in xrange(grid_size):
+    x0, x1 = 0, W
+    for x in xrange(grid_size):
+      if next_idx < N:
+        img = Xs[next_idx]
+        low, high = np.min(img), np.max(img)
+        grid[y0:y1, x0:x1] = ubound * (img - low) / (high - low)
+        # grid[y0:y1, x0:x1] = Xs[next_idx]
+        next_idx += 1
+      x0 += W + padding
+      x1 += W + padding
+    y0 += H + padding
+    y1 += H + padding
+  # grid_max = np.max(grid)
+  # grid_min = np.min(grid)
+  # grid = ubound * (grid - grid_min) / (grid_max - grid_min)
+  return grid
+
+
+def show_net_weights(net):
+  W1 = net.params['W1']
+  W1 = W1.reshape(32, 32, 3, -1).transpose(3, 0, 1, 2)
+  plt.imshow(visualize_grid(W1, padding=3).astype('uint8'))
+  plt.gca().axis('off')
+  plt.show()
 
 # Barebones testing code
 
