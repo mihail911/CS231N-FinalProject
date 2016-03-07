@@ -3,7 +3,7 @@ import numpy as np
 import sys
 import theano
 import theano.tensor as T
-sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
+sys.path.append("/Users/chris/Documents/cs231/project/CS231N-FinalProject/")
 import lasagne
 
 from models.vgg19 import train_and_predict_funcs, build_model, load_weights
@@ -56,6 +56,7 @@ def visualize_img(img):
     plt.gca().axis('off')
     plt.gcf().set_size_inches(5, 5)
     plt.show()
+
 
 
 if __name__ == "__main__":
