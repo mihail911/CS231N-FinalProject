@@ -22,6 +22,8 @@ import theano.tensor as T
 from theano import pp
 import time
 
+from sklearn.decomposition import PCA
+
 import lasagne
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
 from lasagne.layers.dnn import Conv2DDNNLayer as ConvLayer
@@ -69,7 +71,9 @@ class Bootstrap(object):
                                                     dtype=np.float32)
 	    t1 = time.time()
 	    print "batch {0} - {1} : took {2:.4f} seconds".format(n, n+batch_size, t1 - t0)
-            
+        
+	# remove the imags from the reader, since we don't need them anymore.
+	self.reader.remove(synset) 
 	return curSet, features
 
 
@@ -77,6 +81,7 @@ class Bootstrap(object):
         '''  
         Bootstraps on the input space using the given method.
 
+	Does an RBF kernel PCA transform.
         Params:
         - features : a matrix of feature vectors, with the first dimension N.  
 
@@ -99,17 +104,12 @@ class Bootstrap(object):
                 samples[i] = samp_l2
 		
 	    # Run PCA to 128 features
-	std = np.std (features, axis=0)
-	features /= (std + 1e-8)
+	features += mean_img
+	pca_model = PCA (n_components = 128)
+	f_hat = pca_model.fit_transform (features)
+	expl_var = sum (pca_model.explained_variance_ratio_ )	
+	print "Explained variance of 4096 --> 128 features: ", expl_var
 
-	U, s, Vt = np.linalg.svd(features, full_matrices=False)
-	S = np.diag(s)
-	V = Vt.T
-	print U.shape, S.shape, V.shape	
-
-	f_hat = np.dot(U[:, :pc], np.dot(S[:pc, :pc], V[:,:pc].T))
-	print f_hat.shape
-	print "Using first 128 PCs, MSE = %.6G" %(np.mean((features - f_hat)**2))
         with open('{0}_pca_128'.format(synset), 'w+') as f:
 		pickle.dump(f_hat, f)
 	
@@ -189,6 +189,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and (sys.argv[1] == '-p' or sys.argv[1] == '--pipe'): # pipe in synsets to use to stdin.
         synsets = sys.stdin.read().split('\n')[:-1]
 
+    print synsets
 
     net, mean_image = prepare_vgg16()
     boot = Bootstrap(net)
@@ -196,6 +197,11 @@ if __name__ == '__main__':
     syn = synsets[0]        
     synsets.append(None)
     for i in xrange(1, len(synsets)):
+	if os.path.exists(syn + "_samples"):
+	    print "skipping {0}: already exists".format(syn)
+	    syn = synsets[i]
+	    continue
+
 	print "starting new batch"        
 	t0 = time.time()
         current, features = boot.forward(syn, synsets[i])

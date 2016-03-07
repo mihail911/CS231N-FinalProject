@@ -14,6 +14,9 @@
 *.gz
 datasets/*
 weights/*
+n0*_samples
+n0*_pca*
 
 # access keys
 ACCESS_KEY
+

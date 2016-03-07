@@ -41,7 +41,7 @@ class DiskReader (object):
         if synset in self.data:
             self.data[synset] = None
 
-    def get(self, synset, delete=False):
+    def get(self, synset, delete=True):
         ''' Performs the asynchronous get() on the synset data, and wipes the process
             once it is done.
 
@@ -87,13 +87,18 @@ class DiskReader (object):
         N = len(files)
         images = np.zeros ((N, 3, 224, 224))
         print "processing in progress..."
-        for i, f in enumerate(files):
+        chopped_off = 0
+	for i, f in enumerate(files):
             im = plt.imread (prefix + f)
 
             sh = im.shape
             if len(sh) <= 2:
                 im = im[:, :, None]
-            h, w, _ = im.shape
+	    elif im.shape[2] == 4: # wtf is this image: skip
+        	chopped_off += 1
+		continue    
+	    h, w, _ = im.shape
+		
 
             if h < w:
                 im = skimage.transform.resize(im, (256, w*256/h), preserve_range=True)
@@ -112,7 +117,9 @@ class DiskReader (object):
                 print count    
             # Convert to BGR
             images[i, :, :, :] = im[::-1, :, :]
-        print images.shape
+        images = images[:i - chopped_off, :, :, :]
+	print images.shape
+	
         q.put( floatX(images) )
 
 #-------------------------------
