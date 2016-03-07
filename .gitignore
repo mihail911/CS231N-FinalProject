@@ -14,3 +14,7 @@
 *.gz
 datasets/*
 weights/*
+
+# Sample files
+n0*_samples
+n0*pca*
