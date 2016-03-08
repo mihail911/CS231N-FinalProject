@@ -11,6 +11,7 @@ import io
 import skimage.transform
 from gen_adver import FastGradient
 from textwrap import wrap
+import os
 
 import theano
 import theano.tensor as T
@@ -30,7 +31,7 @@ from lasagne.nonlinearities import softmax
 
 def prep_image(url,mean_image):
     # ext = url.split('.')[-1]
-    im = plt.imread(url, 'png')
+    im = plt.imread(url, 'JPEG')
     # Resize so smallest dim = 256, preserving aspect ratio
 #     print url
     if im.ndim < 3:
@@ -122,13 +123,9 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     Dynamically downloads sample images from ImageNet.  
     '''
     # index = urllib.urlopen('http://www.image-net.org/challenges/LSVRC/2012/ori_urls/indexval.html').read()
-    image_urls = index.split('<br>')
-    allFiles = os.listdir('/mnt/val_images');
+    fullPath = '/mnt/val_images'
+    allFiles = os.listdir(fullPath);
     final_labels = gold_labels.copy()
-    np.random.seed(61)
-    np.random.shuffle(image_urls)
-    np.random.seed(61)
-    np.random.shuffle(final_labels)
     result_labels = np.zeros(num_ex)
     valid_urls = []
 
@@ -138,30 +135,24 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     used=True
     rawim = np.zeros ((num_ex, 224, 224, 3), dtype=np.float32)
     tot = 0
-    for j in xrange(start,end):
+    valid_urls = []
+    for h in xrange(start,end):
         # only use quick downloads on flickr
         # if 'static.flickr' not in im_url:
         #     continue
-        im = allFiles[j]
-        rawimTemp, result = prep_image (im, mean_image)
+        im = allFiles[h]
+        rawimTemp, result = prep_image(fullPath + '/' + im, mean_image)
         if result is None:
+	    valid_urls.append(im)
             continue
     
-        if result.any():
-            images[i,:,:,:] = result
-            result_labels[i] = final_labels[j]
-            rawim[i,:,:,:] = rawimTemp
-            i += 1
-            tot += 1
-            valid_urls.append(im)
-           
-        if i >= num_ex: 
-            break
-        if tot >= (end-start):
-            break
-        j += 1
+        images[h-start,:,:,:] = result
+        result_labels[h-start] = final_labels[h]
+        rawim[h-start,:,:,:] = rawimTemp
+        valid_urls.append(im)
+   
             
-    return rawim,images,result_labels,valid_urls
+    return rawim,images,result_labels,list(valid_urls)
     
     
 def load_gold_labels():
@@ -202,11 +193,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
         exit(1)
 
     rem = _num_images%batch_size
-    num_iter = 0
-    if rem == 0:
-        num_iter = _num_images/batch_size
-    else:
-        num_iter = _num_images/batch_size + 1
+    num_iter = _num_images/batch_size
     
     trueProb_dist = []
     advProb_dist = []
@@ -234,7 +221,9 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
                                                                    all_gold_labels,cur_start,cur_end)
         if log:
             print "Finished downloading images, normalizing them and extracting required number of images and labels for iteration " + str(i+1) +  " ......"
-        t0 = time.time()
+        print "Length of valid URLS: " + str(len(valid_urls))
+	print "Shap of Image Matrix: " + str(images.shape)
+	t0 = time.time()
         curSet = np.copy(images[i*batch_size:(i+1)*batch_size,:,:,:])
         true_prob = np.array(lasagne.layers.get_output(net['prob'], curSet, deterministic=True).eval(), dtype=np.float32)
         true_top5 = np.argsort(true_prob,axis=1)[:,-1:-6:-1]
@@ -296,11 +285,11 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
                 actualTrueLabel.append(trueLabel)
                 imName = ''
                 if adv_prob[k,advLabel] >= 0.5:
-                    advHighUrl.append(valid_urls[i*batch_size+k])
+                    advHighUrl.append(valid_urls[k])
                     imName = '/mnt/advResults/high_{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(classes[trueLabel]),true_prob[k,trueLabel],
                                                                            str(classes[advLabel]),adv_prob[k,advLabel])
                 else:
-                    advLowUrl.append(valid_urls[i*batch_size+k])
+                    advLowUrl.append(valid_urls[k])
                     imName = '/mnt/advResults/{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(classes[trueLabel]),true_prob[k,trueLabel],
                                                                            str(classes[advLabel]),adv_prob[k,advLabel])
                 scipy.misc.imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
@@ -401,11 +390,11 @@ def run_fsg_adverserial(tot_images=1,batch_size=1,start=0,end=1):
    
 def main():
     t1 = time.time()
-    run_fsg_adverserial(tot_images=64*_num_splits,batch_size=32, start=0,end=64*_num_splits)
+    run_fsg_adverserial(tot_images=_num_images,batch_size=32, start=0,end=_num_images)
     t2 = time.time()
     print "Time taken to generate {0} adv examples is {1} seconds".format(64*_num_splits, t2-t1)
 
-_num_images = 50000
-_num_splits = 782
+_num_images = 128
+_num_splits = 4
 if __name__ == "__main__":
 	main()

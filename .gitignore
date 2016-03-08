@@ -17,3 +17,7 @@ weights/*
 
 # access keys
 ACCESS_KEY
+=======
+# Sample files
+n0*_samples
+n0*pca*

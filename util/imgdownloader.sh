@@ -28,3 +28,9 @@ tar xzf "$synset.tar" -C "$datapath$synset/"
 rm "$synset.tar"
 
 # Look through images, discard ones that cannot be the right size 
+=======
+echo "tar xzf $synset.tar -C $datapath$synset/"
+tar xf "$synset.tar" -C "$datapath$synset/"
+rm "$synset.tar"
+
+# Look through images, discard ones that cannot be the right size 

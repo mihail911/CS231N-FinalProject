@@ -23,6 +23,11 @@ class DiskReader (object):
     def __init__(self):
         self.activeQueues = {}  
         self.data = {}
+    def __init__(self, prefix='/mnt/data/'):
+        self.activeQueues = {}  
+        self.data = {}
+        self.path = prefix
+
     def startRequest (self, synset):
         ''' Begins a request to asynchronously fetch the images for a synset. 
             Returns nothing.
@@ -41,7 +46,11 @@ class DiskReader (object):
         if synset in self.data:
             self.data[synset] = None
 
+<<<<<<< HEAD
     def get(self, synset, delete=False):
+=======
+    def get(self, synset, delete=True):
+>>>>>>> f836fc4caafab98c4a7652979c9510fd1d44d5d2
         ''' Performs the asynchronous get() on the synset data, and wipes the process
             once it is done.
 
@@ -55,7 +64,11 @@ class DiskReader (object):
         
         q, proc = self.activeQueues[synset]
         result = q.get()
+<<<<<<< HEAD
 
+=======
+	print "images shape: ", result.shape
+>>>>>>> f836fc4caafab98c4a7652979c9510fd1d44d5d2
         if not delete:
             self.data[synset] = result
         print "processing finished"
@@ -79,7 +92,11 @@ class DiskReader (object):
 
         ''' Processes the images from a directory on disk '''
         count = 0
+<<<<<<< HEAD
         prefix = '../datasets/{0}/'.format(synset)
+=======
+        prefix = self.path + '{0}/'.format(synset)
+>>>>>>> f836fc4caafab98c4a7652979c9510fd1d44d5d2
 
         self.ensureDataExists(prefix, synset)
 
@@ -87,13 +104,26 @@ class DiskReader (object):
         N = len(files)
         images = np.zeros ((N, 3, 224, 224))
         print "processing in progress..."
+<<<<<<< HEAD
         for i, f in enumerate(files):
+=======
+        chopped_off = 0
+	for i, f in enumerate(files):
+>>>>>>> f836fc4caafab98c4a7652979c9510fd1d44d5d2
             im = plt.imread (prefix + f)
 
             sh = im.shape
             if len(sh) <= 2:
                 im = im[:, :, None]
+<<<<<<< HEAD
             h, w, _ = im.shape
+=======
+	    elif im.shape[2] == 4: # wtf is this image: skip
+        	chopped_off += 1
+		continue    
+	    h, w, _ = im.shape
+		
+>>>>>>> f836fc4caafab98c4a7652979c9510fd1d44d5d2
 
             if h < w:
                 im = skimage.transform.resize(im, (256, w*256/h), preserve_range=True)
@@ -112,12 +142,23 @@ class DiskReader (object):
                 print count    
             # Convert to BGR
             images[i, :, :, :] = im[::-1, :, :]
+<<<<<<< HEAD
 
         images -= mean_image[None,:,None,None]
         q.put( floatX(images[np.newaxis]) )
+=======
+        images = images[:i - chopped_off, :, :, :]
+	print images.shape
+	
+        q.put( floatX(images) )
+>>>>>>> f836fc4caafab98c4a7652979c9510fd1d44d5d2
 
 #-------------------------------
 if __name__ == '__main__':
     
     bts = DiskReader()
+<<<<<<< HEAD
     bts.get('n04598582')
+=======
+    bts.get('n04598582')
+>>>>>>> f836fc4caafab98c4a7652979c9510fd1d44d5d2
