@@ -230,14 +230,13 @@ for i in xrange(batch_size):
     adv_top5 = np.argsort(adv_prob,axis=1)[:,-1:-6:-1]
     finalImage = foolingX[i,:,:,:] + mean_image
     
-    for k in xrange(batch_size):
-        advLabel = adv_top5[k,0]
-        trueLabel = true_top5[k,0]
-        if advLabel != trueLabel:
-            origName = '/mnt/advResults/orig_{0}_{1:.2f}_{2}_{3:.2f}.png'format(str(classes[trueLabel]),true_prob[k,trueLabel],
-                                                                           str(classes[advLabel]),adv_prob[k,advLabel])
-            imName = '/mnt/advResults/{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(classes[trueLabel]),true_prob[k,trueLabel],
-                                                                           str(classes[advLabel]),adv_prob[k,advLabel])
-            scipy.misc.imsave(origName, rawim[k,:,:,:].transpose(1,2,0).astype('uint8'))
-            scipy.misc.imsave(imName, final[k,:,:,:].transpose(1,2,0).astype('uint8'))
+    advLabel = adv_top5[k,0]
+    trueLabel = true_top5[k,0]
+    if advLabel != trueLabel:
+        origName = '/mnt/advResults/orig_{0}_{1:.2f}_{2}_{3:.2f}.png'format(str(classes[trueLabel]),true_prob[k,trueLabel],
+                                                                       str(classes[advLabel]),adv_prob[k,advLabel])
+        imName = '/mnt/advResults/{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(classes[trueLabel]),true_prob[k,trueLabel],
+                                                                       str(classes[advLabel]),adv_prob[k,advLabel])
+        scipy.misc.imsave(origName, rawim[k,:,:,:].transpose(1,2,0).astype('uint8'))
+        scipy.misc.imsave(imName, final[k,:,:,:].transpose(1,2,0).astype('uint8'))
             
