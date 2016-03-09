@@ -143,31 +143,6 @@ if __name__ == "__main__":
     layer_name = "conv5_1"
     test_input = np.random.random((1, 3, 224, 224)).astype(np.float32)*20 + 128
     reconstruct_features(model, layer_name, input_var, test_input)
-    #
-    # backprop_func, loss, grads = compute_loss_grads_backprop_func(model, layer_name, input_var)
-    #
-    # test_input = np.random.random((1, 3, 224, 224)).astype(np.float32)*20 + 128
-    # loss, grads = backprop_func(test_input)
-    # #print "Backprop loss and Grads: ", loss, grads
-    #
-    # print "Original image plotting"
-    # # Visualize img before ascent
-    # #plt.ion()
-    # plt.figure(1)
-    #
-    # plt.imshow(np.transpose(test_input[0], (1, 2, 0)))
-    # plt.show(block=False)
-    # plt.pause(0.01)
-    #
-    # test_input = generate_optimal_img(backprop_func, test_input)
-    #
-    # print "Gradient ascent complete"
-    #
-    # plt.figure(2)
-    # # Visualize img after ascent
-    # deprocess_test = deprocess_image(test_input[0])
-    # plt.imshow(deprocess_test)
-    # plt.show()
 
 
     # Code below relevant for other activation visualization method -- Not relevant to above
