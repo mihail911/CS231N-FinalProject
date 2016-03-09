@@ -104,7 +104,7 @@ def scale_image(im):
     h, w, c = im.shape
     # Some janky image being inputted
     if c != 3:
-        warnings.RuntimeWarning("Image provided does not have 3 channels")
+        warnings.RuntimeWarning("Image provided does not have 3 channels. Returning array of zeros...")
         return np.zeros_like(im.transpose(2, 0, 1))
 
     if h < w:
