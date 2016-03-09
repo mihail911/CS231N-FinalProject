@@ -46,7 +46,7 @@ def prep_image(url,mean_image):
     im = np.swapaxes(np.swapaxes(im, 1, 2), 0, 1)
     
     # Convert to BGR
-    im = im[::-1, :, :]
+    #im = im[::-1, :, :]
     im = im - mean_image[:,None,None]
     return rawim, floatX(im[np.newaxis])
 

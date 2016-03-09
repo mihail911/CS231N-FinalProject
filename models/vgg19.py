@@ -49,7 +49,7 @@ def prep_image(url, mean_image):
         im = np.swapaxes(np.swapaxes(im, 1, 2), 0, 1)
 
         # Convert to BGR
-        im = im[::-1, :, :]
+        #im = im[::-1, :, :]
         im = im - mean_image[:,None,None]
         return rawim, floatX(im[np.newaxis])
 
@@ -75,7 +75,7 @@ def train_and_predict_funcs(weights=None, update="nesterov", regularization=0.0)
     #print "Weights before loading..."
     #print lasagne.layers.get_all_param_values(model, trainable=True)
     with open("weights_before.txt", "a") as f:
-        f.write("Weights beforeloading...\n")
+        f.write("Weights before loading...\n")
         f.write(str(lasagne.layers.get_all_param_values(model, trainable=True)))
 
     # Load pre-trained weights
@@ -121,7 +121,7 @@ def train_and_predict_funcs(weights=None, update="nesterov", regularization=0.0)
     # theano function giving output label for given input
     predict_fn = theano.function([input_var], test_prediction)
 
-    return train_fn, val_fn, predict_fn
+    return train_fn, val_fn, predict_fn, model
 
 
 # Model to be trained/tested against
@@ -133,6 +133,12 @@ def build_model(input_var):
     net['input'] = InputLayer((None, 3, 224, 224), input_var=input_var)
     net['conv1_1'] = ConvLayer(
         net['input'], 64, 3, pad=1)
+    input = np.random.randn(2, 3, 224, 224).astype(np.float32)
+    # out1 = lasagne.layers.get_output(net['conv1_1'], input)
+    # print "Output: ", out1.eval()
+    # print "Output: ", out1.shape.eval()
+#    fout1 = theano.function([input_var], out1)
+#    print
     net['conv1_2'] = ConvLayer(
         net['conv1_1'], 64, 3, pad=1)
     net['pool1'] = PoolLayer(net['conv1_2'], 2)
@@ -262,7 +268,7 @@ def compute_accuracy(data_dir, val_filename, lower_idx, upper_idx):
     idx_to_class_map, _, _, mean_image, param_values = load_weights("../datasets/vgg19.pkl")
 
     # TODO: Check that params are being set
-    _, val_fn, predict_fn = train_and_predict_funcs(weights=param_values)
+    _, val_fn, predict_fn, _ = train_and_predict_funcs(weights=param_values)
     
     #img_id_mapping = get_image_id_mapping("/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/parsedData.txt")
 

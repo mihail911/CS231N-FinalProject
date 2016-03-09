@@ -24,6 +24,7 @@ class DiskReader (object):
         self.activeQueues = {}  
         self.data = {}
         self.path = prefix
+
     def startRequest (self, synset):
         ''' Begins a request to asynchronously fetch the images for a synset. 
             Returns nothing.
@@ -117,7 +118,7 @@ class DiskReader (object):
             if count % 10 == 0:
                 print count    
             # Convert to BGR
-            images[i, :, :, :] = im[::-1, :, :]
+            #images[i, :, :, :] = im[::-1, :, :]
         images = images[:i - chopped_off, :, :, :]
 	print images.shape
 	

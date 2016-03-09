@@ -1,14 +1,16 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import sys
 import theano
 import theano.tensor as T
 sys.path.append("/Users/chris/Documents/cs231/project/CS231N-FinalProject/")
+sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
 import lasagne
 
 from models.vgg19 import train_and_predict_funcs, build_model, load_weights
-from util.util import show_net_weights, visualize_grid
-
+from util.util import show_net_weights, visualize_grid, get_label_to_synset_mapping
+from correspondence import find_nearest_trained
 
 def visualize_weights(layer_name, model):
     weights_layer = lasagne.layers.get_all_param_values(model[layer_name])
@@ -51,12 +53,10 @@ def convert_to_pixel_space(activations, ubound=255.0):
 
 
 def visualize_img(img):
-    print "img shape: {0}", img.shape
     plt.imshow(img.astype('uint8'))
     plt.gca().axis('off')
-    plt.gcf().set_size_inches(5, 5)
+    #plt.gcf().set_size_inches(5, 5)
     plt.show()
-
 
 
 if __name__ == "__main__":
@@ -75,8 +75,25 @@ if __name__ == "__main__":
 
     layer_name = "conv1_1"
     test_input = np.random.randn(1, 3, 224, 224).astype(np.float32)
+    test_input_img = np.random.randn(3, 224, 224).astype(np.float32)
     activations = get_activations_at_layer(model, layer_name, test_input)
 
-    converted_img = convert_to_pixel_space(activations)
-    visualize_img(converted_img)
+    img_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/nipunresults/" \
+                   "awsResults/advResults/vulture_0.08_beaver_0.31.png"
+    img_label = "vulture"
+    img_file = None
+
+
+    label_to_synset = get_label_to_synset_mapping\
+        ("/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/parsedData.txt")
+    img_synset = label_to_synset[img_label]
+    img, idx = find_nearest_trained(test_input_img, synset=img_synset)
+
+    #converted_img = convert_to_pixel_space(activations)
+
+    # Swap channels back
+    #img = img[::-1, :, :]
+    # Swap axis order back to (224, 224, 3)
+    img = img.transpose(1,2,0)
+    visualize_img(img)
 
