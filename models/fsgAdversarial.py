@@ -123,7 +123,7 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     '''
     # index = urllib.urlopen('http://www.image-net.org/challenges/LSVRC/2012/ori_urls/indexval.html').read()
     image_urls = index.split('<br>')
-    allFiles = os.listdir('/mnt/val_images');
+    allFiles = os.listdir('/mnt/val_images')
     final_labels = gold_labels.copy()
     np.random.seed(61)
     np.random.shuffle(image_urls)
