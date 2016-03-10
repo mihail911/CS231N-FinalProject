@@ -92,6 +92,7 @@ class DiskReader (object):
         images = np.zeros ((N, 3, 224, 224))
         print "processing in progress..."
         chopped_off = 0
+	i = 0
 	for i, f in enumerate(files):
 	    try:
            	im = plt.imread (prefix + f)
