@@ -8,7 +8,9 @@ echo $username
 echo $synset
 echo $akey
 # in util/, want datasets/
-datapath="../datasets/"
+
+
+datapath="/mnt/data/"
 
 # Download synset tar
 url="http://www.image-net.org/download/synset"
