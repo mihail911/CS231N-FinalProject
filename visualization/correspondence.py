@@ -22,6 +22,8 @@ def find_nearest_trained (img, train_images=None, synset=None, metric='l2'):
 
 	Returns the nearest image under the metric defined by 'metric'.
 
+	Expected 'img' shape: (3, 224, 224) in reversed BGR ordering
+
 	'''
 	global _reader
 
@@ -37,12 +39,19 @@ def find_nearest_trained (img, train_images=None, synset=None, metric='l2'):
 	print distances
 
 	ind = np.argmax(distances)
+
+	# # Swap axis order back to (224, 224, 3)
+    #img = img.transpose(1,2,0)
+
 	return train_images[ind], ind
 
 def l2(img, train):
 	''' Finds l2 distance between image of size (C, H, W) and train set of size (N, C, H, W). '''
 	subt = train - img
 	return np.sum(subt*subt, axis=(1, 2, 3))
+
+def l1(img, train):
+	pass
 
 if __name__ == '__main__':
 	A = np.random.random((10, 5, 6, 7))

@@ -10,6 +10,7 @@ import sys
 # Janky work around for making sure the module can find 'Lasagne'
 sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
 import time
+import warnings
 
 from os import listdir
 from os.path import isfile, join
@@ -75,13 +76,37 @@ def get_image_id_mapping(filename):
     return id_to_category
 
 
+def get_label_to_synset_mapping(filename):
+    """
+    Gets mapping from image ids to image categories(words)
+    :param filename:
+    :return:
+    """
+    label_to_synset = {}
+    with open(filename, "r") as f:
+        # Disregard first line which just has column names
+        _ = f.readline()
+        for line in f:
+            contents = line.split()
+            labels = " ".join(contents[2:])
+            synset = contents[1]
+            label_to_synset[labels] = synset
+
+    return label_to_synset
+
+
 def scale_image(im):
     """
-    Scales image to appropriate dimensions
+    Scales and preprocesses image to appropriate dimensions
     :param im:
     :return:
     """
-    h, w, _ = im.shape
+    h, w, c = im.shape
+    # Some janky image being inputted
+    if c != 3:
+        warnings.RuntimeWarning("Image provided does not have 3 channels. Returning array of zeros...")
+        return np.zeros_like(im.transpose(2, 0, 1))
+
     if h < w:
         im = skimage.transform.resize(im, (256, w*256/h), preserve_range=True)
     else:
@@ -95,7 +120,7 @@ def scale_image(im):
     im = np.swapaxes(np.swapaxes(im, 1, 2), 0, 1)
 
     # Convert to BGR
-    im = im[::-1, :, :]
+    #im = im[::-1, :, :]
 
     return im
 
@@ -153,21 +178,7 @@ def compute_accuracy_batch(val_fn, predict_fn, data_batch, labels_batch,
     :return:
     """
     _, acc = val_fn(data_batch, labels_batch)
-    #predictions = predict_fn(data_batch)
-    # print "Data batch: ", data_batch
-    # print "Data batch shape:", data_batch.shape
-    # print "Gold Labels batch: ", labels_batch
-    # for label in labels_batch:
-    #     print img_id_mapping[label]
 
-    # print "Type gold labels: ", type(labels_batch)
-    #predicted_labels = np.argmax(predictions, axis=1)
-    # print "Predicted Labels: ", predicted_labels
-    # for label in predicted_labels:
-    #     print img_id_mapping[label]
-
-    # print "Predicted Labels Shape: ", np.argmax(predictions, axis=1).shape
-    # print "Predicted shape: ", predictions.shape
     return acc
 
 
@@ -262,6 +273,7 @@ def show_net_weights(net):
   plt.imshow(visualize_grid(W1, padding=3).astype('uint8'))
   plt.gca().axis('off')
   plt.show()
+
 
 # Barebones testing code
 
