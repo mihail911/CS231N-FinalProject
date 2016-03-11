@@ -6,7 +6,9 @@ import io
 import skimage.transform
 from textwrap import wrap
 import os
-
+import scipy
+import sys
+sys.path.append('/home/ubuntu/.local/lib/python2.7/site-packages/')
 import theano
 import theano.tensor as T
 from theano import pp
@@ -138,7 +140,7 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     '''
     # index = urllib.urlopen('http://www.image-net.org/challenges/LSVRC/2012/ori_urls/indexval.html').read()
 #     image_urls = index.split('<br>')
-    imPath = '/srv/zfs01/user_data/nipuna1/val_data'
+    imPath = '/mnt/val_data'
     allFiles = os.listdir(imPath)
     final_labels = gold_labels.copy()
     result_labels = np.zeros(num_ex)
@@ -152,7 +154,6 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     tot = 0
     for j in xrange(start,end):
         im = allFiles[j]
-        print im
         rawimTemp, result = prep_image (imPath + '/' + im, mean_image)
         if result is None:
             continue
@@ -184,8 +185,8 @@ def load_data():
 
 
 
-batch_size = 2
-num_ex = 2
+batch_size = 32
+num_ex = 32
 
 
 model, classes, mean_image = load_data()
@@ -208,7 +209,7 @@ train_function = theano.function([input_var, var_y],dX,allow_input_downcast=True
 print "Created the training function"
 
 start = 0
-end = 2
+end = 32
 rawim,images,result_labels,valid_urls = download_val_images (num_ex, mean_image,gold_labels,start,end)
 print "Finished downloading images, normalizing them and extracting required number of images and labels......"
 
@@ -219,24 +220,22 @@ print "Converting to following classes: " + str(target_y)
 
 foolingX = make_fooling_image(images, target_y, net,input_var,var_y)
 
-print "Completed making Fooling Images"
+true_prob = np.array(lasagne.layers.get_output(net['prob'], images, deterministic=True).eval())
+print 'Making forward pass on true image'
+true_top5 = np.argsort(true_prob,axis=1)[:,-1:-6:-1]
+adv_prob = np.array(lasagne.layers.get_output(net['prob'], foolingX, deterministic=True).eval())
+print "Making forward pass on fooling image"
+adv_top5 = np.argsort(adv_prob,axis=1)[:,-1:-6:-1]
+finalImage = foolingX + mean_image[None,:,None,None]
 
-for i in xrange(batch_size):
-    true_prob = np.array(lasagne.layers.get_output(net['prob'], curSet, deterministic=True).eval())
-    print 'Making forward pass on true image'
-    true_top5 = np.argsort(true_prob,axis=1)[:,-1:-6:-1]
-    adv_prob = np.array(lasagne.layers.get_output(net['prob'], foolingX, deterministic=True).eval())
-    print "Making forward pass on fooling image"
-    adv_top5 = np.argsort(adv_prob,axis=1)[:,-1:-6:-1]
-    finalImage = foolingX[i,:,:,:] + mean_image
-    
-    advLabel = adv_top5[k,0]
-    trueLabel = true_top5[k,0]
+for i in xrange(batch_size): 
+    advLabel = adv_top5[i,0]
+    trueLabel = true_top5[i,0]
     if advLabel != trueLabel:
-        origName = '/mnt/advResults/orig_{0}_{1:.2f}_{2}_{3:.2f}.png'format(str(classes[trueLabel]),true_prob[k,trueLabel],
-                                                                       str(classes[advLabel]),adv_prob[k,advLabel])
-        imName = '/mnt/advResults/{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(classes[trueLabel]),true_prob[k,trueLabel],
-                                                                       str(classes[advLabel]),adv_prob[k,advLabel])
-        scipy.misc.imsave(origName, rawim[k,:,:,:].transpose(1,2,0).astype('uint8'))
-        scipy.misc.imsave(imName, final[k,:,:,:].transpose(1,2,0).astype('uint8'))
+        origName = '/mnt/foolingResults/orig_{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(classes[trueLabel][0:30]),true_prob[i,trueLabel],
+                                                                       str(classes[advLabel][0:30]),adv_prob[i,advLabel])
+        imName = '/mnt/foolingResults/{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(classes[trueLabel][0:30]),true_prob[i,trueLabel],
+                                                                       str(classes[advLabel][0:30]),adv_prob[i,advLabel])
+        scipy.misc.imsave(origName, rawim[i,:,:,:].transpose(1,2,0).astype('uint8'))
+        scipy.misc.imsave(imName, finalImage[i,:,:,:].transpose(1,2,0).astype('uint8'))
             
