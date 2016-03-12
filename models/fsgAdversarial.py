@@ -1,5 +1,10 @@
 import numpy as np
+import scipy
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import sys
+sys.path.append('/home/ubuntu/.local/lib/python2.7/site-packages/')
 import pickle
 import urllib
 import io
@@ -14,8 +19,8 @@ import time
 
 import lasagne
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer
-from lasagne.layers.conv import Conv2DLayer as ConvLayer
-from lasagne.layers.pool import Pool2DLayer as PoolLayer
+from lasagne.layers.dnn import Conv2DDNNLayer as ConvLayer
+from lasagne.layers.dnn import Pool2DDNNLayer as PoolLayer
 from lasagne.layers import NonlinearityLayer
 from lasagne.layers import DropoutLayer
 from lasagne.layers import LocalResponseNormalization2DLayer as NormLayer
@@ -24,8 +29,8 @@ from lasagne.nonlinearities import softmax
 
 
 def prep_image(url,mean_image):
-    ext = url.split('.')[-1]
-    im = plt.imread(io.BytesIO(urllib.urlopen(url).read()), ext)
+    # ext = url.split('.')[-1]
+    im = plt.imread(url, 'png')
     # Resize so smallest dim = 256, preserving aspect ratio
 #     print url
     if im.ndim < 3:
@@ -104,7 +109,7 @@ def build_model(input_var,batch_size = None):
 
 
 def load_data():
-    model = pickle.load(open('/afs/ir/users/m/e/meric/Documents/CS231N/CS231N-FinalProject/datasets/vgg19.pkl'))
+    model = pickle.load(open('../weights/vgg19.pkl'))
 
     classes = model['synset words']
     mean_image= model['mean value']
@@ -116,8 +121,9 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     ''' 
     Dynamically downloads sample images from ImageNet.  
     '''
-    index = urllib.urlopen('http://www.image-net.org/challenges/LSVRC/2012/ori_urls/indexval.html').read()
+    # index = urllib.urlopen('http://www.image-net.org/challenges/LSVRC/2012/ori_urls/indexval.html').read()
     image_urls = index.split('<br>')
+    allFiles = os.listdir('/mnt/val_images')
     final_labels = gold_labels.copy()
     np.random.seed(61)
     np.random.shuffle(image_urls)
@@ -125,9 +131,6 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     np.random.shuffle(final_labels)
     result_labels = np.zeros(num_ex)
     valid_urls = []
-    
-    allImages = []
-    path_to_im = " /farmshare/user_data/meric"
 
     images = np.zeros ((num_ex, 3, 224, 224), dtype=np.float32)
     i = 0
@@ -135,12 +138,12 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
     used=True
     rawim = np.zeros ((num_ex, 224, 224, 3), dtype=np.float32)
     tot = 0
-    for im_url in image_urls[start:end+500]:
+    for j in xrange(start,end):
         # only use quick downloads on flickr
-        if 'static.flickr' not in im_url:
-            continue
-            
-        rawimTemp, result = prep_image (im_url, mean_image)
+        # if 'static.flickr' not in im_url:
+        #     continue
+        im = allFiles[j]
+        rawimTemp, result = prep_image (im, mean_image)
         if result is None:
             continue
     
@@ -150,7 +153,7 @@ def download_val_images (num_ex, mean_image,gold_labels,start,end):
             rawim[i,:,:,:] = rawimTemp
             i += 1
             tot += 1
-            valid_urls.append(im_url)
+            valid_urls.append(im)
            
         if i >= num_ex: 
             break
@@ -169,6 +172,7 @@ def load_gold_labels():
         
     return np.asarray(labels)
 
+# TODO: change num_images 32 to a more global backprop pass size
 def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True):
     cls = FastGradient(num_images = batch_size,input_dim=(3,224,224), eps=0.85, 
                    loss='softmax')
@@ -179,15 +183,14 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     if log:
         print "Finished loading data......"
 
-    gold_labels = load_gold_labels()
+    all_gold_labels = load_gold_labels()
     if log:
         print "Finished loading golden labels......"
 
-    rawim, images,gold_labels,valid_urls = download_val_images(tot_images, mean_image, gold_labels,start,end)
-    if log:
-        print "Finished downloading images, normalizing them and extracting required number of images and labels......"
+    # rawim, images,gold_labels,valid_urls = download_val_images(tot_images, mean_image, gold_labels,start,end)
+    # if log:
+    #     print "Finished downloading images, normalizing them and extracting required number of images and labels......"
 
-    print len(valid_urls)
     input_var = T.tensor4('inputs')
     net = build_model(input_var,batch_size=batch_size)
     lasagne.layers.set_all_param_values(net['prob'], model['param values'])
@@ -198,44 +201,91 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
         print "Input the correct batch size and/or the total images in the dataset"
         exit(1)
 
-    num_iter = (len(valid_urls))/batch_size
+    rem = _num_images%batch_size
+    num_iter = 0
+    if rem == 0:
+        num_iter = _num_images/batch_size
+    else:
+        num_iter = _num_images/batch_size + 1
+    
     trueProb_dist = []
     advProb_dist = []
     actualAdvProb = []
     actualAdvLabel = []
     actualTrueProb = []
     actualTrueLabel = []
-    advUrl = []
+    advHighUrl = []
+    advLowUrl = []
 
     sameAdv = []
     sameTrue = []
+    advCount = 0
+    nonAdvCount = 0
 
+    cur_start = start
+    finalEnd = end
+    cur_end = batch_size
     for i in xrange(num_iter):
         if log:
             print "Started Batch Iteration " + str(i+1) + " out of " + str(num_iter)
-
-        curSet = images[i*batch_size:(i+1)*batch_size,:,:,:]
-        true_prob = np.array(lasagne.layers.get_output(net['prob'], curSet, deterministic=True).eval())
+        print "Current Start image is " + str(cur_start)
+        print "Current End image is " + str(cur_end)
+        rawim, images,gold_labels,valid_urls = download_val_images(cur_end - cur_start, mean_image,
+                                                                   all_gold_labels,cur_start,cur_end)
+        if log:
+            print "Finished downloading images, normalizing them and extracting required number of images and labels for iteration " + str(i+1) +  " ......"
+        t0 = time.time()
+        curSet = np.copy(images[i*batch_size:(i+1)*batch_size,:,:,:])
+        true_prob = np.array(lasagne.layers.get_output(net['prob'], curSet, deterministic=True).eval(), dtype=np.float32)
         true_top5 = np.argsort(true_prob,axis=1)[:,-1:-6:-1]
         trueProb_dist += list(true_prob[np.arange(batch_size),true_top5[:,0]])
+        t1 = time.time()
+        print "Time taken for forward pass of {0} : {1} seconds".format(batch_size, t1 - t0)
 
         if log:
             print "Finished forward pass to get the True Image class probabilites......"
 
         newim = rawim[i*batch_size:(i+1)*batch_size,:,:,:].transpose(0,3,1,2)
-        final = cls.adExample(newim,np.array(gold_labels[i*batch_size:(i+1)*batch_size]),model['param values'],net['prob'],input_var)
+        
+        back_batch_sz = batch_size
+        ind = 0
+        final = np.zeros_like(newim)
+
+        while ind < batch_size:
+            bt1 = time.time()
+            print "Back pass for batch {0}-{1}".format(ind, ind + back_batch_sz)
+            small_im = np.copy(newim[ind : ind + back_batch_sz, :, :, :])	
+
+            start_idx = i*batch_size + ind
+            end_idx = min(start_idx + back_batch_sz, (i+1)*batch_size)
+
+            final[ind : ind + back_batch_sz, :, :, :] = cls.adExample(small_im, 
+                np.array(gold_labels[start_idx:end_idx]),
+                model['param values'],
+                net['prob'],
+                input_var)
+            bt2 = time.time()
+            print "Took {0} seconds for mini-mini-batch back".format(bt2 - bt1)
+            ind += back_batch_sz
+
         if log:
             print "Finished generation of adverserial examples for current batch......"
 
         final = final - mean_image[None,:,None,None]
-        adv_prob = np.array(lasagne.layers.get_output(net['prob'], final, deterministic=True).eval())
+        
+        final = final.astype(np.float32)
+        print final.dtype
+
+        adv_prob = np.array(lasagne.layers.get_output(net['prob'], final, deterministic=True).eval(), dtype=np.float32)
         adv_top5 = np.argsort(adv_prob,axis=1)[:,-1:-6:-1]
         advProb_dist += list(adv_prob[np.arange(batch_size),adv_top5[:,0]])
 
         final = final + mean_image[None,:,None,None]
+       
         if log:
             print "Finished forward pass for adverserial examples"
 
+        curCount = 0
         for k in xrange(batch_size):
             advLabel = adv_top5[k,0]
             trueLabel = true_top5[k,0]
@@ -244,27 +294,31 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
                 actualAdvLabel.append(advLabel)
                 actualTrueProb.append(true_prob[k,trueLabel])
                 actualTrueLabel.append(trueLabel)
-                advUrl.append(valid_urls[i*batch_size+k])
+                imName = ''
+                if adv_prob[k,advLabel] >= 0.5:
+                    advHighUrl.append(valid_urls[i*batch_size+k])
+                    imName = '/mnt/advResults/high_{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(classes[trueLabel]),true_prob[k,trueLabel],
+                                                                           str(classes[advLabel]),adv_prob[k,advLabel])
+                else:
+                    advLowUrl.append(valid_urls[i*batch_size+k])
+                    imName = '/mnt/advResults/{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(classes[trueLabel]),true_prob[k,trueLabel],
+                                                                           str(classes[advLabel]),adv_prob[k,advLabel])
+                scipy.misc.imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
+                advCount += 1
             else:
                 sameAdv.append(adv_prob[k,advLabel])
                 sameTrue.append(true_prob[k,trueLabel])
+                imName = '/mnt/advResults/nonAdvImage_{0}_{1:.2f}_{2}_{3:.2f}.png'.format(str(classes[trueLabel]),true_prob[k,trueLabel],
+                                                                           str(classes[advLabel]),adv_prob[k,advLabel])
+                scipy.misc.imsave(imName, final[curCount,:,:,:].transpose(1,2,0).astype('uint8'))
+                nonAdvCount += 1
+                
+            curCount += 1
 
-
-#            plt.subplot(121)
-#            plt.imshow(rawim[i*batch_size+k,:,:,:].astype('uint8'))
-#            for n, label in enumerate(true_top5[k,:]):
-#                plt.text(0,260,'Original Image')
-#                plt.text(0, 280 + n * 20, '{}. {} {} %'.format(n+1, classes[label],true_prob[k,label]*100), fontsize=12)
-#
-#            plt.subplot(122)
-#            plt.imshow(final[k,:,:,:].transpose(1,2,0).astype('uint8'))
-#            for n, label in enumerate(adv_top5[k,:]):
-#                plt.text(0,260,'Adverserial Image')
-#                plt.text(340, 280 + n * 20, '{}. {} {} %'.format(n+1, classes[label],adv_prob[k,label]*100), fontsize=12)
-
-
- #           plt.show() 
-
+        cur_start += batch_size
+        cur_end += batch_size
+        if cur_end > finalEnd:
+            curEnd = finalEnd
         if log:
             print "Finished Batch Iteration " + str(i+1) + " out of " + str(num_iter)
 
@@ -274,30 +328,24 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     actualAdvLabel = np.asarray(actualAdvLabel)
     actualTrueProb = np.asarray(actualTrueProb)
     actualTrueLabel = np.asarray(actualTrueLabel)
-    advUrl = np.asarray(advUrl)
+    advHighUrl = np.asarray(advHighUrl)
+    advLowUrl = np.asarray(advLowUrl)
 
     # Open files to write the data collected into
-    text1 = open("highAdvProb1.txt","w")
-    text2 = open("highAdvLabel1.txt","w")
-    text3 = open("highTrueProb1.txt","w")
-    text4 = open("highTrueLabel1.txt","w")
-    text5 = open("highAdvUrl1.txt","w")
-    text6 = open("trueProb_dist1.txt","w")
-    text7 = open("advProb_dist1.txt","w")
+    text2 = open("/mnt/advResults/advLowUrl.txt","w")
+    text1 = open("/mnt/advResults/advHighUrl.txt","w")
+    text3 = open("/mnt/advResults/trueProb_dist.txt","w")
+    text4 = open("/mnt/advResults/advProb_dist.txt","w")
 
     #   Index into the arrays to find the elements having high confidence adervarial examples
     highAdvProb = actualAdvProb[actualAdvProb >= 0.5]
     highAdvLabel = actualAdvLabel[actualAdvProb >= 0.5]
     highTrueProb = actualTrueProb[actualAdvProb >= 0.5]
     highTrueLabel = actualTrueLabel[actualAdvProb >= 0.5]
-    advUrl = advUrl[actualAdvProb >= 0.5]
 
     #   Save the data collected to files
-    np.savetxt(text1,highAdvProb, fmt='%1.8f')
-    np.savetxt(text2,highAdvLabel, fmt='%s')
-    np.savetxt(text3,highTrueProb, fmt='%1.8f')
-    np.savetxt(text4,highTrueLabel, fmt='%s')
-    np.savetxt(text5,advUrl, fmt='%s')
+    np.savetxt(text1,advHighUrl, fmt='%s')
+    np.savetxt(text2,advLowUrl, fmt='%s')
 
 
     highTrueProb = list(highTrueProb)
@@ -307,7 +355,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.title('Frequency Distribution of Confidences of VGG Predictions')
     plt.xlabel('Confidences')
     plt.ylabel('Count')
-    plt.savefig("true_prob_dist-1.pdf")
+    plt.savefig("/mnt/advResults/true_prob_dist.pdf")
     plt.figure()
 
     trueProb_dist = np.asarray(trueProb_dist)
@@ -317,7 +365,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.title('\n'.join(wrap(title,60)))
     plt.xlabel('Confidences')
     plt.ylabel('Count')
-    plt.savefig("adv_prob_dist-1.pdf")
+    plt.savefig("/mnt/advResults/adv_prob_dist.pdf")
     plt.figure()
 
     advProb_dist = np.asarray(advProb_dist)
@@ -327,7 +375,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.title('\n'.join(wrap(title,60)))
     plt.xlabel('Confidences of true predictions')
     plt.ylabel('Counts')
-    plt.savefig("true_having_some_adv-1.pdf")
+    plt.savefig("/mnt/advResults/true_having_some_adv.pdf")
     plt.figure()
 
     plt.hist(highTrueProb,bins=binSplit)
@@ -335,7 +383,7 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.title('\n'.join(wrap(title,60)))
     plt.xlabel('Confidences of true predictions')
     plt.ylabel('Counts')
-    plt.savefig("true_having_high_adv-1.pdf")
+    plt.savefig("/mnt/advResults/true_having_high_adv.pdf")
     plt.figure()
 
     plt.hist(sameTrue,bins=binSplit)
@@ -343,20 +391,21 @@ def find_adverserial_examples(tot_images=1,batch_size=1,start=0,end=1, log=True)
     plt.title('\n'.join(wrap(title,60)))
     plt.xlabel('Confidences of true predictions')
     plt.ylabel('Counts')
-    plt.savefig("true_having_same_adv-1.pdf")
+    plt.savefig("/mnt/advResults/true_having_same_adv.pdf")
 
-    np.savetxt(text6,trueProb_dist, fmt='%1.8f')
-    np.savetxt(text7,advProb_dist, fmt='%1.8f')
+    np.savetxt(text3,trueProb_dist, fmt='%1.2f')
+    np.savetxt(text4,advProb_dist, fmt='%1.2f')
     
 def run_fsg_adverserial(tot_images=1,batch_size=1,start=0,end=1):
     find_adverserial_examples(tot_images=tot_images,batch_size=batch_size,start=start,end=end,log=True)
    
 def main():
     t1 = time.time()
-    run_fsg_adverserial(tot_images=5000,batch_size=5, start=0,end=5000)
+    run_fsg_adverserial(tot_images=64*_num_splits,batch_size=32, start=0,end=64*_num_splits)
     t2 = time.time()
-    print "Time taken to execute program is " + str(t2-t1) + " seconds"
+    print "Time taken to generate {0} adv examples is {1} seconds".format(64*_num_splits, t2-t1)
 
-
+_num_images = 50000
+_num_splits = 782
 if __name__ == "__main__":
-    main()
+	main()
