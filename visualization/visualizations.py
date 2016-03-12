@@ -53,11 +53,11 @@ def convert_to_pixel_space(activations, filter_num, ubound=255.0):
 
 def visualize_img(img):
     plt.imshow(img.astype('uint8'), interpolation='nearest')
+    plt.colorbar()
     plt.gca().axis('off')
-    #plt.gcf().set_size_inches(5, 5)
-    plt.show(block=False)
-     # Will hang both images for 25 seconds
-    plt.pause(20)
+    plt.show()
+     # Will hang both images for 20 seconds
+    #plt.pause(20)
 
 
 def compute_loss_grads_backprop_func(model, layer_name, input, filter_num):
@@ -98,7 +98,7 @@ def deprocess_image(x):
     return x
 
 
-def reconstruct_features(model, layer_name, input_var, input_img, filter_num):
+def reconstruct_features(model, layer_name, input_var, filename, filter_num):
     """
     Reconstruct features in input_img that led to max activation at given layer
     :param model:
@@ -107,6 +107,10 @@ def reconstruct_features(model, layer_name, input_var, input_img, filter_num):
     :param input_img: Ensure 4d with (num_sample, num_filter, H, W)
     :return:
     """
+    orig_img = plt.imread(filename)
+    prep_orig = scale_image(orig_img)
+    input_img = prep_orig[None, :, :, :].astype(np.float32)
+
     backprop_func, loss, grads = compute_loss_grads_backprop_func(model, layer_name, input_var, filter_num)
 
     loss, grads = backprop_func(input_img)
@@ -166,19 +170,26 @@ def visualize_max_filter_activations(model, layer_name, orig_filename, adv_filen
     print "Computing max/min filters..."
     min_idx, max_idx = get_min_max_filter_idx(model, layer_name, prep_adv, prep_orig)
 
+    print "Min idx {0}, Max idx {1}".format(str(min_idx), str(max_idx))
+
     print "Computing activations..."
     activations_orig = get_activations_at_layer(model, layer_name, prep_orig)
     activations_adv = get_activations_at_layer(model, layer_name, prep_adv)
 
+    print "activations dim: ", activations_adv.shape
+
     print "Converting original image activations to pixel space..."
     converted_orig = convert_to_pixel_space(activations_orig, max_idx)
     plt.figure(1)
+
     visualize_img(converted_orig)
 
     print "Converting adversarial image activations to pixel space..."
     plt.figure(2)
     converted_adv = convert_to_pixel_space(activations_adv, max_idx)
     visualize_img(converted_adv)
+
+    return min_idx, max_idx
 
 
 if __name__ == "__main__":
@@ -190,41 +201,23 @@ if __name__ == "__main__":
     model = build_model(input_var)
     lasagne.layers.set_all_param_values(model['prob'], values)
 
-    # Expects inputs of (num_sample, channels, H, W) dim
-#    reconstruct_features(model, layer_name, input_var, test_input, filter_num=0)
-
-    layer_name = "conv5_1"
+    layer_name = "conv1_2"
 
     # Original image
-    orig_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ImagePairs/orig_spaghetti squash_0.89_bottlecap_0.57.png"
-    adv_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/ImagePairs/high_spaghetti squash_0.89_bottlecap_0.57.png"
+    # Change path to images as appropriate
+    orig_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/nipun/orig_high_sea slug, nudibranch_0.94_jigsaw puzzle_0.97.png"
+    adv_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/nipun/high_sea slug, nudibranch_0.94_jigsaw puzzle_0.97.png"
 
-    visualize_max_filter_activations(model, layer_name, orig_filename, adv_filename)
+    #visualize_max_filter_activations(model, layer_name, orig_filename, adv_filename)
 
+    # Expects inputs of (num_sample, channels, H, W) dim
     # Reconstruct features for original image
-    #reconstruct_features(model, layer_name, input_var, prep_orig, filter_num=125)
+    reconstruct_features(model, layer_name, input_var, orig_filename, filter_num=28)
 
 
-    # Code below relevant for other activation visualization method -- Not relevant to above
-    # test_input_img = np.random.randn(3, 224, 224).astype(np.float32)
-    # activations = get_activations_at_layer(model, layer_name, test_input)
-    #
-    # img_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/nipunresults/" \
-    #                "awsResults/advResults/vulture_0.08_beaver_0.31.png"
-    # img_label = "vulture"
-    # img_file = None
-    #
-    #
     # label_to_synset = get_label_to_synset_mapping\
     #     ("/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/parsedData.txt")
     # img_synset = label_to_synset[img_label]
     # img, idx = find_nearest_trained(test_input_img, synset=img_synset)
     #
     # #converted_img = convert_to_pixel_space(activations)
-    #
-    # # Swap channels back
-    # #img = img[::-1, :, :]
-    # # Swap axis order back to (224, 224, 3)
-    # img = img.transpose(1,2,0)
-    # visualize_img(img)
-
