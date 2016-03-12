@@ -74,7 +74,7 @@ class Bootstrap(object):
         
 	# remove the imags from the reader, since we don't need them anymore.
 	self.reader.remove(synset) 
-	return curSet, features
+	return images, features
 
 
     def sample (self, synset, features, method='l2', k=50, num_samples=3000, pc=128):
@@ -88,7 +88,10 @@ class Bootstrap(object):
         Returns:
         - samples: the set of bootstrapped size-k samples
         '''
+	print features.shape        
         N = features.shape[0]
+	if N == 0:
+	    return None
         mean_img = np.mean (features, axis=0)
         samples = np.zeros(num_samples)
 
@@ -206,7 +209,7 @@ if __name__ == '__main__':
 
 	print "starting new batch"        
 	t0 = time.time()
-        current, features = boot.forward(syn, synsets[i])
+       	_, features = boot.forward(syn, synsets[i])
        	tbefore = time.time()
 	samples = boot.sample(syn, features)
 	tafter = time.time() 

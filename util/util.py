@@ -10,10 +10,12 @@ import sys
 # Janky work around for making sure the module can find 'Lasagne'
 sys.path.append("/Users/mihaileric/Documents/Research/Lasagne")
 import time
+import warnings
 
 from os import listdir
 from os.path import isfile, join
 from lasagne.utils import floatX
+from math import sqrt, ceil
 
 
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
@@ -74,13 +76,37 @@ def get_image_id_mapping(filename):
     return id_to_category
 
 
+def get_label_to_synset_mapping(filename):
+    """
+    Gets mapping from image ids to image categories(words)
+    :param filename:
+    :return:
+    """
+    label_to_synset = {}
+    with open(filename, "r") as f:
+        # Disregard first line which just has column names
+        _ = f.readline()
+        for line in f:
+            contents = line.split()
+            labels = " ".join(contents[2:])
+            synset = contents[1]
+            label_to_synset[labels] = synset
+
+    return label_to_synset
+
+
 def scale_image(im):
     """
-    Scales image to appropriate dimensions
+    Scales and preprocesses image to appropriate dimensions
     :param im:
     :return:
     """
-    h, w, _ = im.shape
+    h, w, c = im.shape
+    # Some janky image being inputted
+    if c != 3:
+        warnings.RuntimeWarning("Image provided does not have 3 channels. Returning array of zeros...")
+        return np.zeros_like(im.transpose(2, 0, 1))
+
     if h < w:
         im = skimage.transform.resize(im, (256, w*256/h), preserve_range=True)
     else:
@@ -94,7 +120,7 @@ def scale_image(im):
     im = np.swapaxes(np.swapaxes(im, 1, 2), 0, 1)
 
     # Convert to BGR
-    im = im[::-1, :, :]
+    #im = im[::-1, :, :]
 
     return im
 
@@ -152,21 +178,7 @@ def compute_accuracy_batch(val_fn, predict_fn, data_batch, labels_batch,
     :return:
     """
     _, acc = val_fn(data_batch, labels_batch)
-    #predictions = predict_fn(data_batch)
-    # print "Data batch: ", data_batch
-    # print "Data batch shape:", data_batch.shape
-    # print "Gold Labels batch: ", labels_batch
-    # for label in labels_batch:
-    #     print img_id_mapping[label]
 
-    # print "Type gold labels: ", type(labels_batch)
-    #predicted_labels = np.argmax(predictions, axis=1)
-    # print "Predicted Labels: ", predicted_labels
-    # for label in predicted_labels:
-    #     print img_id_mapping[label]
-
-    # print "Predicted Labels Shape: ", np.argmax(predictions, axis=1).shape
-    # print "Predicted shape: ", predictions.shape
     return acc
 
 
@@ -219,6 +231,48 @@ def load_dataset_batch(data_dir, val_filename, batch_size, mean_image, lower_idx
             data_batch[idx, :, :, :] = img
 
         yield data_batch, labels_batch
+
+def visualize_grid(Xs, ubound=255.0, padding=1):
+  """
+  Reshape a 4D tensor of image data to a grid for easy visualization.
+
+  Inputs:
+  - Xs: Data of shape (N, H, W, C)
+  - ubound: Output grid will have values scaled to the range [0, ubound]
+  - padding: The number of blank pixels between elements of the grid
+  """
+  (N, H, W, C) = Xs.shape
+  grid_size = int(ceil(sqrt(N)))
+  grid_height = H * grid_size + padding * (grid_size - 1)
+  grid_width = W * grid_size + padding * (grid_size - 1)
+  grid = np.zeros((grid_height, grid_width, C))
+  next_idx = 0
+  y0, y1 = 0, H
+  for y in xrange(grid_size):
+    x0, x1 = 0, W
+    for x in xrange(grid_size):
+      if next_idx < N:
+        img = Xs[next_idx]
+        low, high = np.min(img), np.max(img)
+        grid[y0:y1, x0:x1] = ubound * (img - low) / (high - low)
+        # grid[y0:y1, x0:x1] = Xs[next_idx]
+        next_idx += 1
+      x0 += W + padding
+      x1 += W + padding
+    y0 += H + padding
+    y1 += H + padding
+  # grid_max = np.max(grid)
+  # grid_min = np.min(grid)
+  # grid = ubound * (grid - grid_min) / (grid_max - grid_min)
+  return grid
+
+
+def show_net_weights(net):
+  W1 = net.params['W1']
+  W1 = W1.reshape(32, 32, 3, -1).transpose(3, 0, 1, 2)
+  plt.imshow(visualize_grid(W1, padding=3).astype('uint8'))
+  plt.gca().axis('off')
+  plt.show()
 
 
 # Barebones testing code

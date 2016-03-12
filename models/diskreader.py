@@ -20,9 +20,12 @@ class DiskReader (object):
     One thread servers as the base server to bind to, and the other does
     computation in the background.
     '''
-    def __init__(self):
+
+    def __init__(self, prefix='/mnt/data/'):
         self.activeQueues = {}  
         self.data = {}
+        self.path = prefix
+
     def startRequest (self, synset):
         ''' Begins a request to asynchronously fetch the images for a synset. 
             Returns nothing.
@@ -79,8 +82,9 @@ class DiskReader (object):
 
         ''' Processes the images from a directory on disk '''
         count = 0
-        prefix = '/mnt/data/{0}/'.format(synset)
 
+        prefix = self.path + '{0}/'.format(synset)
+       
         self.ensureDataExists(prefix, synset)
 
         files = os.listdir(prefix)
@@ -88,8 +92,8 @@ class DiskReader (object):
         images = np.zeros ((N, 3, 224, 224))
         print "processing in progress..."
         chopped_off = 0
+	i = 0
 	for i, f in enumerate(files):
-
 	    try:
            	im = plt.imread (prefix + f)
 
@@ -114,6 +118,7 @@ class DiskReader (object):
 	    
        	    # Central crop to 224x224
 	    h, w, _ = im.shape
+
             im = im[h//2-112:h//2+112, w//2-112:w//2+112]
             rawim = np.copy(im).astype('uint8')
             
@@ -121,8 +126,7 @@ class DiskReader (object):
             im = np.swapaxes(np.swapaxes(im, 1, 2), 0, 1)
             count += 1
             if count % 10 == 0:
-            	print count    
-            # Convert to BGR
+           	print count	
             images[i, :, :, :] = im[::-1, :, :]
 
         images = images[:i - chopped_off, :, :, :]

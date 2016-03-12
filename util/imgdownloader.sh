@@ -8,6 +8,8 @@ echo $username
 echo $synset
 echo $akey
 # in util/, want datasets/
+
+
 datapath="/mnt/data/"
 
 # Download synset tar

@@ -14,8 +14,11 @@
 *.gz
 datasets/*
 weights/*
+<<<<<<< HEAD
+
+# Sample files
 n0*_samples
-n0*_pca*
+n0*pca*
 
 # access keys
 ACCESS_KEY
