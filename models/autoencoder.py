@@ -20,17 +20,65 @@ import time
 import lasagne
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer, InverseLayer
 
+import multiprocessing as mp
+
+import cPickle as pickle
 from lasagne.utils import floatX
-from lasagne.updates import adam
+from lasagne.updates import adam, adamax, rmsprop
 from lasagne.nonlinearities import softmax
 
+import glob 
 
-def load_data ():
+_prefix = "../../../231n_results/"
+
+def load_one (args):
+    ''' Parallel task to load pca features from disk '''
+    slice_no, syn_link = args
+
+    try:
+        with open(syn_link, 'r') as f:
+            X = floatX(pickle.load(f))
+    except IOError as e:
+        print "Error :" + str(e)
+        return None
+
+    return X
+
+def load_data (fake=False, synsets = None):
     # TODO: import diskreader, etc...
 
-    X = floatX(np.random.random((1024, 128)))
+    if fake:
+        X = floatX(np.random.random((1024, 128)))
+    else:
+
+        if synsets:
+            syns_path = [_prefix + "train_features/{0}_pca_128".format(syn) for syn in synsets]
+        else:    
+            syns_path = glob.glob(_prefix + 'train_features/*pca_128')
+        
+        print syns_path
+
+        N = len(syns_path)
+        
+        before = time.time()
+        print "starting in parallel..."
+        pool = mp.Pool(8)
+        args = [(i, syns_path[i]) for i in xrange(N)]
+        print len(args)
+
+
+        vectors = pool.map(load_one, args)
+
+        counter = 0
+        print len(vectors)
+        
+        after = time.time()
+        print "Loaded {0} pca features in {1:.3f} seconds".format(N - counter, after - before)
+        X = vectors
+
     y = X
     return X, y
+
 
 def load_cifar10():
     img_data = get_CIFAR10_data()
@@ -57,7 +105,7 @@ def buildEncoder(hidden_sizes=[64, 32, 16, 8], input_sz=128):
     prev = net['input']
     for i, name in enumerate(names):
         net[name] = DenseLayer(prev, num_units=hidden_sizes[i], 
-                                     nonlinearity=T.nnet.relu,
+                                     nonlinearity=lasagne.nonlinearities.very_leaky_rectify,
                                      W=lasagne.init.HeNormal(gain='relu') )
         prev = net[name]
 
@@ -68,7 +116,8 @@ def buildEncoder(hidden_sizes=[64, 32, 16, 8], input_sz=128):
         net[name] = InverseLayer(prev, net[names[-j-1]])
         prev = net[name]
 
-    return net, input_var, target_var
+    init_weights = lasagne.layers.get_all_param_values(net['h0_inv'])
+    return net, input_var, target_var, init_weights
 
 def buildFunctions(net, input_var, target_var):
 
@@ -104,12 +153,17 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
         yield inputs[excerpt], targets[excerpt]
 
 
-def train(x, y, train_function, num_epochs=10):
-    batch_size = 100
-    print x.dtype
-    print y.dtype
+def train(x, y, train_function, net, weights, num_epochs=40):
+    batch_size = 512
+
+    N = x.shape[0]
+    x -= np.mean(x, axis=0)
+    if weights:
+        lasagne.layers.set_all_param_values (net['h0_inv'], weights)
+
     print("Starting training...")
     # We iterate over epochs:
+    
     for epoch in range(num_epochs):
         # In each epoch, we do a full pass over the training data:
         train_err = 0.0
@@ -117,10 +171,12 @@ def train(x, y, train_function, num_epochs=10):
         start_time = time.time()
         for batch in iterate_minibatches(x, y, batch_size, shuffle=True):
             inputs, targets = batch
-            train_function(inputs, targets)
+            train_err += train_function(inputs, targets)
             train_batches += 1
-        print 'epoch {0} done in time {1}'.format(epoch, time.time() - start_time)
-    
+        if epoch % 10 == 0:
+           mean_err = np.mean((train_err))
+           print 'epoch {0} done in time {1}\nLoss: {2}'.format(epoch, time.time() - start_time, mean_err)
+        
 
 def getEncodedOutput (net, data):
     compressed = np.array(lasagne.layers.get_output(
@@ -146,16 +202,35 @@ def visualize (data, compressed):
     imshow_noax(np.transpose(compressed[0], (1, 2, 0)))
     imshow_noax(normed_data[0])
 
-        
-def run():
-    X, y = load_data ()
-    print X.shape, y.shape
-    net, input_var, target_var = buildEncoder()
+    
+def run(synsets):
+
+    net, input_var, target_var, init_weights = buildEncoder()
+
     train_fn = buildFunctions(net, input_var, target_var)
-    train(X, y, train_fn)
+
+    N = len(synsets) 
+    X, y = load_data(False, synsets)
+    for i in xrange(N):
+        print "loading iter {0}".format(i)
+    
+        train(X[i], X[i], train_fn, net=net, weights=init_weights)
+
+        weights = lasagne.layers.get_all_param_values (net['h0_inv'])
+        with open(_prefix + 'train_autoencode/{0}.pkl'.format(synsets[i]), 'w+') as f:
+            pickle.dump(weights, f)
+        print "Done with iteration {0}".format(i)
+
+
 
 if __name__ == '__main__':
-    run()
+
+    synsets = ['n02105056']
+    if len(sys.argv) > 1 and (sys.argv[1] == '-p' or sys.argv[1] == '--pipe'): # pipe in synsets to use to stdin.
+        synsets = sys.stdin.read().split('\n')[:-1]
+
+    print synsets
+    run(synsets)
 
 
 
