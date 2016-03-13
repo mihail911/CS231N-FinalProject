@@ -20,17 +20,67 @@ import time
 import lasagne
 from lasagne.layers import InputLayer, DenseLayer, DropoutLayer, InverseLayer
 
+import multiprocessing as mp
+
+import cPickle as pickle
 from lasagne.utils import floatX
 from lasagne.updates import adam
 from lasagne.nonlinearities import softmax
 
+import glob 
 
-def load_data ():
+_prefix = "../../../231n_results/"
+
+def load_one (args):
+    ''' Parallel task to load pca features from disk '''
+    slice_no, syn_link = args
+
+    try:
+        with open(syn_link, 'r') as f:
+            X = floatX(pickle.load(f))
+    except IOError as e:
+        print "Error :" + str(e)
+        return None, slice_no
+
+    return X, slice_no
+
+def load_data (fake=False, synsets = None):
     # TODO: import diskreader, etc...
 
-    X = floatX(np.random.random((1024, 128)))
+    if fake:
+        X = floatX(np.random.random((1024, 128)))
+    else:
+
+        if synsets:
+            syns_path = [_prefix + "train_features/{0}_pca_128".format(syn) for syn in synsets]
+        else:    
+            syns_path = glob.glob(_prefix + 'train_features/*pca_128')
+        
+        print syns_path
+
+        N = len(syns_path)
+        
+        before = time.time()
+        print "starting in parallel..."
+        pool = mp.Pool(8)
+        args = [(i, syns_path[i]) for i in xrange(N)]
+        print len(args)
+
+
+        vectors = pool.map(load_one, args)
+
+        counter = 0
+        print len(vectors)
+        for x, ind in vectors:
+            if x is None:
+                print "Don't have ind {0}: {1}".format(ind, syns_path[ind])
+                counter += 1
+        after = time.time()
+        print "Loaded {0} pca features in {1:.3f} seconds".format(N - counter, after - before)
+
     y = X
     return X, y
+
 
 def load_cifar10():
     img_data = get_CIFAR10_data()
@@ -104,10 +154,10 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
         yield inputs[excerpt], targets[excerpt]
 
 
-def train(x, y, train_function, num_epochs=10):
-    batch_size = 100
-    print x.dtype
-    print y.dtype
+def train(x, y, train_function, num_epochs=30):
+    batch_size = 512
+    print type(x)
+
     print("Starting training...")
     # We iterate over epochs:
     for epoch in range(num_epochs):
@@ -146,16 +196,28 @@ def visualize (data, compressed):
     imshow_noax(np.transpose(compressed[0], (1, 2, 0)))
     imshow_noax(normed_data[0])
 
-        
-def run():
-    X, y = load_data ()
-    print X.shape, y.shape
+    
+def run(synsets):
+
     net, input_var, target_var = buildEncoder()
+
     train_fn = buildFunctions(net, input_var, target_var)
-    train(X, y, train_fn)
+
+
+    for _ in xrange(1):
+        print "loading iter {0}".format(_)
+        X, y = load_data(True)        
+        train(X, y, train_fn)
+        print "Done with iteration {0}".format(_)
 
 if __name__ == '__main__':
-    run()
+
+    synsets = ['n02105056']
+    if len(sys.argv) > 1 and (sys.argv[1] == '-p' or sys.argv[1] == '--pipe'): # pipe in synsets to use to stdin.
+        synsets = sys.stdin.read().split('\n')[:-1]
+
+    print synsets
+    run(synsets)
 
 
 
