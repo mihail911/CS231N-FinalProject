@@ -113,10 +113,10 @@ class Bootstrap(object):
 	expl_var = sum (pca_model.explained_variance_ratio_ )	
 	print "Explained variance of 4096 --> 128 features: ", expl_var
 
-    with open('{0}_pca_128'.format(synset), 'w+') as f:
+    	with open('{0}_pca_128'.format(synset), 'w+') as f:
 		pickle.dump(f_hat, f)
-    with open('{0}_pca_model'.format(synset), 'w+') as g:
-        pickle.dump(pca_model, g)
+   	with open('{0}_pca_model'.format(synset), 'w+') as g:
+        	pickle.dump(pca_model, g)
 	
 	return samples            
 
