@@ -105,7 +105,7 @@ def buildEncoder(hidden_sizes=[64, 32, 16, 8], input_sz=128):
     prev = net['input']
     for i, name in enumerate(names):
         net[name] = DenseLayer(prev, num_units=hidden_sizes[i], 
-                                     nonlinearity=T.nnet.relu,
+                                     nonlinearity=lasagne.nonlinearities.very_leaky_rectify,
                                      W=lasagne.init.HeNormal(gain='relu') )
         prev = net[name]
 
