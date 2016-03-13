@@ -24,7 +24,7 @@ import multiprocessing as mp
 
 import cPickle as pickle
 from lasagne.utils import floatX
-from lasagne.updates import adam
+from lasagne.updates import adam, adamax, rmsprop
 from lasagne.nonlinearities import softmax
 
 import glob 
@@ -40,9 +40,9 @@ def load_one (args):
             X = floatX(pickle.load(f))
     except IOError as e:
         print "Error :" + str(e)
-        return None, slice_no
+        return None
 
-    return X, slice_no
+    return X
 
 def load_data (fake=False, synsets = None):
     # TODO: import diskreader, etc...
@@ -71,12 +71,10 @@ def load_data (fake=False, synsets = None):
 
         counter = 0
         print len(vectors)
-        for x, ind in vectors:
-            if x is None:
-                print "Don't have ind {0}: {1}".format(ind, syns_path[ind])
-                counter += 1
+        
         after = time.time()
         print "Loaded {0} pca features in {1:.3f} seconds".format(N - counter, after - before)
+        X = vectors
 
     y = X
     return X, y
@@ -118,7 +116,8 @@ def buildEncoder(hidden_sizes=[64, 32, 16, 8], input_sz=128):
         net[name] = InverseLayer(prev, net[names[-j-1]])
         prev = net[name]
 
-    return net, input_var, target_var
+    init_weights = lasagne.layers.get_all_param_values(net['h0_inv'])
+    return net, input_var, target_var, init_weights
 
 def buildFunctions(net, input_var, target_var):
 
@@ -154,12 +153,17 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
         yield inputs[excerpt], targets[excerpt]
 
 
-def train(x, y, train_function, num_epochs=30):
+def train(x, y, train_function, net, weights, num_epochs=40):
     batch_size = 512
-    print type(x)
+
+    N = x.shape[0]
+    x -= np.mean(x, axis=0)
+    if weights:
+        lasagne.layers.set_all_param_values (net['h0_inv'], weights)
 
     print("Starting training...")
     # We iterate over epochs:
+    
     for epoch in range(num_epochs):
         # In each epoch, we do a full pass over the training data:
         train_err = 0.0
@@ -167,10 +171,12 @@ def train(x, y, train_function, num_epochs=30):
         start_time = time.time()
         for batch in iterate_minibatches(x, y, batch_size, shuffle=True):
             inputs, targets = batch
-            train_function(inputs, targets)
+            train_err += train_function(inputs, targets)
             train_batches += 1
-        print 'epoch {0} done in time {1}'.format(epoch, time.time() - start_time)
-    
+        if epoch % 10 == 0:
+           mean_err = np.mean((train_err))
+           print 'epoch {0} done in time {1}\nLoss: {2}'.format(epoch, time.time() - start_time, mean_err)
+        
 
 def getEncodedOutput (net, data):
     compressed = np.array(lasagne.layers.get_output(
@@ -199,16 +205,23 @@ def visualize (data, compressed):
     
 def run(synsets):
 
-    net, input_var, target_var = buildEncoder()
+    net, input_var, target_var, init_weights = buildEncoder()
 
     train_fn = buildFunctions(net, input_var, target_var)
 
+    N = len(synsets) 
+    X, y = load_data(False, synsets)
+    for i in xrange(N):
+        print "loading iter {0}".format(i)
+    
+        train(X[i], X[i], train_fn, net=net, weights=init_weights)
 
-    for _ in xrange(1):
-        print "loading iter {0}".format(_)
-        X, y = load_data(True)        
-        train(X, y, train_fn)
-        print "Done with iteration {0}".format(_)
+        weights = lasagne.layers.get_all_param_values (net['h0_inv'])
+        with open(_prefix + 'train_autoencode/{0}.pkl'.format(synsets[i]), 'w+') as f:
+            pickle.dump(weights, f)
+        print "Done with iteration {0}".format(i)
+
+
 
 if __name__ == '__main__':
 
