@@ -113,9 +113,9 @@ class Bootstrap(object):
 	expl_var = sum (pca_model.explained_variance_ratio_ )	
 	print "Explained variance of 4096 --> 128 features: ", expl_var
 
-    	with open('{0}_pca_128'.format(synset), 'w+') as f:
+    	with open('/mnt/results/{0}_pca_128'.format(synset), 'w+') as f:
 		pickle.dump(f_hat, f)
-   	with open('{0}_pca_model'.format(synset), 'w+') as g:
+   	with open('/mnt/results/{0}_pca_model'.format(synset), 'w+') as g:
         	pickle.dump(pca_model, g)
 	
 	return samples            
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     syn = synsets[0]        
     synsets.append(None)
     for i in xrange(1, len(synsets)):
-	if os.path.exists(syn + "_samples"):
+	if os.path.exists('/mnt/results/' + syn + "_samples"):
 	    print "skipping {0}: already exists".format(syn)
 	    syn = synsets[i]
 	    continue
@@ -213,7 +213,7 @@ if __name__ == '__main__':
        	tbefore = time.time()
 	samples = boot.sample(syn, features)
 	tafter = time.time() 
-        with open("{0}_samples".format(syn), 'w+') as f:
+        with open("/mnt/results/{0}_samples".format(syn), 'w+') as f:
             pickle.dump(samples, f)
         shutil.rmtree ('/mnt/data/{0}'.format(syn))
 	t1 = time.time()
