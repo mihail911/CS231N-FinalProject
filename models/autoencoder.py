@@ -5,7 +5,6 @@ sys.path.insert(0, os.path.abspath("~/.local/lib/python2.7/site-packages"))
 sys.path.append(os.path.abspath('..'))
 
 import lasagne
-from util.data_utils import get_CIFAR10_data
 
 os.environ['THEANO_FLAGS'] = 'floatX=float32'
 
@@ -29,7 +28,7 @@ from lasagne.nonlinearities import softmax
 
 import glob 
 
-_prefix = "../../../231n_results/"
+_prefix = "/mnt/all/"
 
 def load_one (args):
     ''' Parallel task to load pca features from disk '''
@@ -153,9 +152,10 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
         yield inputs[excerpt], targets[excerpt]
 
 
-def train(x, y, train_function, net, weights, num_epochs=40):
+def train(x, y, train_function, net, weights, num_epochs=60):
     batch_size = 512
-
+    if x is None:
+	return
     N = x.shape[0]
     x -= np.mean(x, axis=0)
     if weights:
