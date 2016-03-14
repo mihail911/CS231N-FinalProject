@@ -13,12 +13,12 @@ import sys
 import autoencoder
 import multiprocessing as mp
 
-
 import theano
 import theano.tensor as T
 from theano import pp
 
 import lasagne
+from lasagne.utils import floatX
 from time import time
 
 def plot_density (kernel):
@@ -44,20 +44,25 @@ def plot_density (kernel):
 # 
 
 
-_prefix = '../../../231n_results/'
+_prefix = '/mnt/all/'
 
 def load_pca_feat (syn='n02119789'):
-    with open(_prefix + 'train_features/{0}_pca_128'.format(syn), 'rb') as f:
-        pca_feat = pickle.load(f)
-        
+    try:
+	with open(_prefix + 'train_features/{0}_pca_128'.format(syn), 'rb') as f:
+            pca_feat = pickle.load(f)
+    except:
+	print "couldn't open"
+	return None 
     return pca_feat
 
 def load_pca_model (syn = 'n02119789'):
     
-    
-    with open(_prefix + 'train_pca/{0}_pca_model'.format(syn), 'rb') as f:
-        pca_model = pickle.load(f)
-        
+    try:
+	    with open(_prefix + 'train_pca/{0}_pca_model'.format(syn), 'rb') as f:
+        	pca_model = pickle.load(f)
+    except:
+	    print "couldn't open"
+	    return None
     return pca_model
 
 def parallelize_batch (fn, args, batch_size):
@@ -76,7 +81,7 @@ def parallelize_batch (fn, args, batch_size):
 def prep_encoder():
     net, input_var, target_var, init_weights = autoencoder.buildEncoder()
     half_network = lasagne.layers.get_output (net['h3'], input_var, deterministic=True)
-    predict_fn = theano.function([input_var], half_network)
+    predict_fn = theano.function([input_var], half_network, allow_input_downcast=True)
     
     return net, predict_fn
 
@@ -107,6 +112,8 @@ def form_density_priors (synsets, vgg_out = None):
     
     encoder,predict_fn = prep_encoder()
     if vgg_out is None:
+	print "SLOBBERING"
+	exit(-1)
         # random input
         N, I = 1500, 4096
         vgg_out = np.random.random((N, I))
@@ -118,19 +125,23 @@ def form_density_priors (synsets, vgg_out = None):
     # Get output of lasagne function forward pass ...
 
     projected = np.zeros ((C, N, O))
-
+    print "vgg out: ", vgg_out
     t0 = time()
     i = 0
     for features in parallelize_batch (load_pca_model, args, 8):
         for m in features:
+	    if m is None or m.components_.shape[0] != 128 :
+		print "skipping empty feature..."
+		i += 1
+		continue
             projected[i, :, :] = m.transform(vgg_out)
             i += 1
         print i, '---'
 
     t1 = time()
-
+	
     print t1 - t0, " seconds elapsed for pca compression"
-
+    projected = floatX(projected)
     # enc_out = np.zeros ((C, N, 8))
     # Run the autoencoder forward pass, making sure to calculate the pca features too...
     j = 0
@@ -139,15 +150,24 @@ def form_density_priors (synsets, vgg_out = None):
     for entry in parallelize_batch (load_weights_and_pca_feat, args, 8):
 
         for feat, w in entry:
-            lasagne.layers.set_all_param_values (encoder['h0_inv'], w)
+	    if feat is None or w is None:
+	        print "Returned none, skipping. .."
+		j += 1
+	   	continue
+	    elif feat.shape[1] != 128:
+	        j += 1
+	        print "invalid feature dimension, skipping"
+		continue 
+	
+	    lasagne.layers.set_all_param_values (encoder['h0_inv'], w)
             class_out = predict_fn (feat)
-            print "shape: ", feat.shape
+	               
             enc_out =  predict_fn (projected[j, :, :])
-            print "enc_out: ", enc_out
+	     
             # form density estimate
             kernel = stats.gaussian_kde(class_out.T, 'silverman')
             # scale density by number of support examples
-            density[j, :] =  kernel(enc_out.T) * (1.0 * feat.shape[0])
+            density[j, :] =  kernel(enc_out.T)
 
             j += 1
         print '---'
@@ -157,7 +177,6 @@ def form_density_priors (synsets, vgg_out = None):
     t2 = time()
 
     print "Total time elapsed: {0:.3f}".format(t2 - t0)
-    print density
     return density
 
 

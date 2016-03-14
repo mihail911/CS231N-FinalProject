@@ -31,6 +31,7 @@ from lasagne.nonlinearities import softmax
 def prep_image(url,mean_image):
     # ext = url.split('.')[-1]
     im = plt.imread(url, 'png')
+    im = np.uint8(im*255)
     # Resize so smallest dim = 256, preserving aspect ratio
 #     print url
     if im.ndim < 3:
