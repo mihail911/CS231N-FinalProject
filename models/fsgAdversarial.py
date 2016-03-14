@@ -107,6 +107,18 @@ def build_model(input_var,batch_size = None):
 
     return net
 
+def prep_full_connected(input_var, param_values, batch_size = None):
+    net = {}
+    net['input'] = InputLayer((batch_size, 4096),input_var=input_var)
+    net['fc6_dropout'] = DropoutLayer(net['fc6'], p=0.5)
+    net['fc7'] = DenseLayer(net['fc6_dropout'], num_units=4096)
+    net['fc7_dropout'] = DropoutLayer(net['fc7'], p=0.5)
+    net['fc8'] = DenseLayer(
+        net['fc7_dropout'], num_units=1000, nonlinearity=None)
+    net['prob'] = NonlinearityLayer(net['fc8'], softmax)
+
+    lasagne.layers.set_all_param_values(net['prob'], param_values)   
+    return net
 
 
 def load_data():
@@ -409,4 +421,7 @@ def main():
 _num_images = 50000
 _num_splits = 782
 if __name__ == "__main__":
-	main()
+
+    input_var = T.matrix('inputs')
+    model, classes, _ = load_data()
+    prep_fully_connected (input_var, model['param_values'][-5:], 96)
