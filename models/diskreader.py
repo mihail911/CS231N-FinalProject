@@ -118,7 +118,7 @@ class DiskReader (object):
             if count % 10 == 0:
                 print count    
             # Convert to BGR
-            #images[i, :, :, :] = im[::-1, :, :]
+            images[i, :, :, :] = im
         images = images[:i - chopped_off, :, :, :]
 	print images.shape
 	

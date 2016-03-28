@@ -189,6 +189,13 @@ def visualize_max_filter_activations(model, layer_name, orig_filename, adv_filen
     converted_adv = convert_to_pixel_space(activations_adv, max_idx)
     visualize_img(converted_adv)
 
+    print "Printing image differences..."
+    plt.figure(3)
+    image_diff = np.absolute(activations_orig - activations_adv)
+    converted_diff = convert_to_pixel_space(image_diff, max_idx)
+    visualize_img(converted_diff)
+
+
     return min_idx, max_idx
 
 
@@ -205,19 +212,12 @@ if __name__ == "__main__":
 
     # Original image
     # Change path to images as appropriate
-    orig_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/nipun/orig_high_sea slug, nudibranch_0.94_jigsaw puzzle_0.97.png"
-    adv_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/nipun/high_sea slug, nudibranch_0.94_jigsaw puzzle_0.97.png"
+    #orig_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/nipun/orig_high_sea slug, nudibranch_0.94_jigsaw puzzle_0.97.png"
+    #adv_filename = "/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/nipun/high_sea slug, nudibranch_0.94_jigsaw puzzle_0.97.png"
 
-    #visualize_max_filter_activations(model, layer_name, orig_filename, adv_filename)
+    #_, max_idx = visualize_max_filter_activations(model, layer_name, orig_filename, adv_filename)
 
     # Expects inputs of (num_sample, channels, H, W) dim
     # Reconstruct features for original image
-    reconstruct_features(model, layer_name, input_var, orig_filename, filter_num=28)
+    #reconstruct_features(model, layer_name, input_var, orig_filename, filter_num=125)
 
-
-    # label_to_synset = get_label_to_synset_mapping\
-    #     ("/Users/mihaileric/Documents/CS231N/CS231N-FinalProject/datasets/parsedData.txt")
-    # img_synset = label_to_synset[img_label]
-    # img, idx = find_nearest_trained(test_input_img, synset=img_synset)
-    #
-    # #converted_img = convert_to_pixel_space(activations)

@@ -33,10 +33,8 @@ def find_nearest_trained (img, train_images=None, synset=None, metric='l2'):
 		assert synset is not None
 	
 		train_images = _reader.get(synset, delete=False)
-
-	fn = _metrics[metric]	
+	fn = _metrics[metric]
 	distances = fn(img, train_images)
-	print distances
 
 	ind = np.argmax(distances)
 
@@ -46,7 +44,7 @@ def find_nearest_trained (img, train_images=None, synset=None, metric='l2'):
 	return train_images[ind], ind
 
 def l2(img, train):
-	''' Finds l2 distance between image of size (C, H, W) and train set of size (N, C, H, W). '''
+	''' Finds l2 distance between image of size (1, C, H, W) and train set of size (N, C, H, W). '''
 	subt = train - img
 	return np.sum(subt*subt, axis=(1, 2, 3))
 
